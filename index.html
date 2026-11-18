@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#EDEAE1" />
+<script>
+  // Apply the saved theme before first paint so the page doesn't flash.
+  try {
+    var __s = JSON.parse(localStorage.getItem('fx-state-eur-inr') || '{}');
+    var __t = __s.theme || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', __t);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', __t === 'dark' ? '#181C16' : '#EDEAE1');
+  } catch (e) {}
+</script>
+<title>EUR → INR Tracker</title>
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="EUR-INR" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEAE1;
+    --paper-2:#E3DFD1;
+    --ink:#23281E;
+    --ink-soft:#666B5C;
+    --line:#D2CBB8;
+    --accent:#8B5A2B;
+    --good:#2F5C42;
+    --wait:#5B6B78;
+    --bad:#9C4A4A;
+    --serif:'Fraunces', 'Iowan Old Style', Georgia, serif;
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"]{ color-scheme:light; }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --paper:#181C16;
+    --paper-2:#22271E;
+    --ink:#EDEAE1;
+    --ink-soft:#9AA08C;
+    --line:#3A4030;
+    --accent:#D3A15E;
+    --good:#6FBE94;
+    --wait:#8A9AA8;
+    --bad:#D98A8A;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:15px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    -webkit-text-size-adjust:100%;
+    transition:background-color .2s ease, color .2s ease;
+  }
+  .container{
+    max-width:560px; margin:0 auto;
+    padding:max(32px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(64px, calc(env(safe-area-inset-bottom) + 32px)) max(20px, env(safe-area-inset-left));
+  }
+  a{ color:var(--accent); }
+  button{ font-family:inherit; }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .topbar{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  .brand{ font-family:var(--serif); font-size:20px; font-weight:600; }
+  .status{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--wait); flex-shrink:0; }
+  .link-btn{ background:none; border:none; color:var(--accent); font-family:var(--mono); font-size:12px; cursor:pointer; padding:6px 4px; text-decoration:underline; }
+
+  .hero{ margin-top:30px; }
+  .hero-rate{ font-family:var(--mono); font-weight:600; font-size:clamp(46px,13vw,72px); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:4px; }
+  .rupee{ font-size:0.5em; color:var(--ink-soft); }
+  .hero-meta{ color:var(--ink-soft); font-size:13px; margin-top:2px; }
+  .converter{ margin-top:18px; display:flex; align-items:center; gap:8px; font-size:14px; flex-wrap:wrap; }
+  .converter input{ width:110px; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
+  .converted{ font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; }
+
+  .verdict{ margin-top:30px; }
+  .verdict p{ margin:0; }
+  #verdictText{ font-family:var(--serif); font-size:19px; line-height:1.5; }
+  .outlook{ font-family:var(--serif); font-size:16px; line-height:1.5; color:var(--ink-soft); margin-top:12px !important; }
+  .disclaimer{ margin-top:10px !important; font-size:12px; color:var(--ink-soft); }
+
+  .rule{ height:1px; background:var(--line); margin:28px 0; }
+
+  #chartContainer svg{ width:100%; height:auto; display:block; }
+  .chart-caption{ font-size:11px; color:var(--ink-soft); margin-top:8px; }
+
+  .stat-row{ display:flex; justify-content:space-between; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; gap:12px; }
+  .stat-row:last-child{ border-bottom:none; }
+  .stat-row span:first-child{ color:var(--ink-soft); }
+  .stat-row span:last-child{ font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+
+  .alerts h2{ font-family:var(--serif); font-size:16px; font-weight:600; margin:0 0 14px; }
+  .target-form label{ display:block; font-size:13px; color:var(--ink-soft); margin-bottom:6px; }
+  .target-row{ display:flex; align-items:center; gap:6px; }
+  .target-row input, .sync-form input{ flex:1; min-width:0; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
+  .target-row button, .secondary-btn{ font-family:var(--mono); font-size:12px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink); padding:9px 14px; cursor:pointer; }
+  .secondary-btn{ margin-top:14px; }
+  .hint{ font-size:12px; color:var(--ink-soft); margin:8px 0 0; }
+
+  .error-state{ margin-top:36px; }
+  .error-state p{ margin:0 0 12px; }
+
+  footer{ margin-top:44px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
+  .sync{ margin-top:14px; }
+  .sync .link-btn{ font-size:11.5px; padding:6px 4px; }
+  .sync-form{ display:flex; flex-direction:column; gap:10px; margin-top:8px; max-width:320px; }
+  .sync-form .secondary-btn{ margin-top:4px; align-self:flex-start; }
+
+  .grid-line{ stroke:var(--line); stroke-width:1; stroke-dasharray:2,3; }
+  .axis-label{ font-family:var(--mono); font-size:10px; fill:var(--ink-soft); }
+  .hist-line{ stroke:var(--accent); stroke-width:2; }
+  .proj-line{ stroke:var(--ink-soft); stroke-width:1.5; stroke-dasharray:4,4; }
+  .current-dot{ fill:var(--accent); }
+
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="topbar">
+    <div class="brand">EUR → INR</div>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Loading…</span>
+      <button class="link-btn" id="refreshBtn" type="button">Refresh</button>
+      <button class="link-btn" id="themeToggle" type="button">Dark</button>
+    </div>
+  </header>
+
+  <div id="app" hidden>
+    <section class="hero">
+      <div class="hero-rate"><span class="rupee">₹</span><span id="heroValue">--.--</span></div>
+      <div class="hero-meta">1 EUR · <span id="heroDate">—</span></div>
+
+      <div class="converter">
+        <input type="number" id="amountInput" value="1000" min="0" step="1" inputmode="decimal" aria-label="Amount in EUR" />
+        <span>EUR ≈</span>
+        <span class="converted" id="convertedOutput">—</span>
+      </div>
+    </section>
+
+    <section class="verdict">
+      <p id="verdictText">—</p>
+      <p class="outlook" id="outlookText">—</p>
+      <p class="disclaimer">Both are a read of recent European Central Bank reference rates — a momentum check, not a forecast. Currency moves can turn quickly.</p>
+    </section>
+
+    <div class="rule"></div>
+
+    <section class="chart-section">
+      <div id="chartContainer"></div>
+      <div class="chart-caption">Solid line: last 90 days. Dashed: simple trend if the last month's pattern continues.</div>
+    </section>
+
+    <div class="rule"></div>
+
+    <section class="stats">
+      <div class="stat-row"><span>7-day average</span><span id="statAvg7">—</span></div>
+      <div class="stat-row"><span>30-day average</span><span id="statAvg30">—</span></div>
+      <div class="stat-row"><span>90-day high</span><span id="statHigh90">—</span></div>
+      <div class="stat-row"><span>90-day low</span><span id="statLow90">—</span></div>
+      <div class="stat-row"><span>30-day change</span><span id="statChange30">—</span></div>
+      <div class="stat-row"><span>Vs. last 180 days</span><span id="statPercentile">—</span></div>
+    </section>
+
+    <div class="rule"></div>
+
+    <section class="alerts">
+      <h2>Alerts</h2>
+      <form class="target-form" id="targetForm">
+        <label for="targetInput">Notify me when 1 EUR reaches</label>
+        <div class="target-row">
+          <span>₹</span>
+          <input type="number" id="targetInput" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 110.00" />
+          <button type="submit">Set</button>
+        </div>
+      </form>
+      <p class="hint" id="targetStatus"></p>
+
+      <button class="secondary-btn" id="enableNotifyBtn" type="button">Enable notifications</button>
+      <p class="hint" id="notifyStatus">Notifications are off.</p>
+      <p class="hint">Alerts for a new 90-day high, or when the rate reaches your target. Checked whenever the app opens, and in the background where your browser allows it (installed app on Chrome or Edge).</p>
+    </section>
+  </div>
+
+  <div class="error-state" id="errorState" hidden>
+    <p id="errorText">Couldn't load exchange rates.</p>
+    <button class="secondary-btn" id="retryBtn" type="button">Try again</button>
+  </div>
+
+  <footer>
+    Reference rates from the <a href="https://ecb.europa.eu" target="_blank" rel="noopener">European Central Bank</a>, via the <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter API</a>. Updated once per business day. Personal reference only — not financial advice.
+    <div class="sync" id="syncBlock" hidden>
+      <span id="syncStatus"></span>
+      <button class="link-btn" id="syncToggle" type="button">Sign in</button>
+      <form class="sync-form" id="syncForm" hidden>
+        <input type="email" id="syncEmail" placeholder="email" autocomplete="username" required />
+        <input type="password" id="syncPass" placeholder="password" autocomplete="current-password" required />
+        <button class="secondary-btn" type="submit">Sign in</button>
+      </form>
+      <p class="hint" id="syncMsg"></p>
+    </div>
+  </footer>
+
+</div>
+
+<script src="config.js"></script>
+<script src="fx-core.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var FX = window.FX;
+  var CFG = window.FX_CONFIG || {};
+
+  var els = {};
+  var currentHistory = [];
+  var currentState = null;
+  var lastStats = null;
+  var heroAnimated = false;
+  var lastSyncAt = 0;
+  var amountTimer = null;
+
+  function $(id){ return document.getElementById(id); }
+
+  function fmtDateShort(iso){
+    var d = new Date(iso + 'T00:00:00Z');
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', timeZone:'UTC' });
+  }
+  function fmtStat(v){ return '₹' + v.toFixed(2); }
+  function fmtChange(change, pct){
+    var sign = change >= 0 ? '+' : '−';
+    return sign + '₹' + Math.abs(change).toFixed(2) + ' (' + sign + Math.abs(pct).toFixed(1) + '%)';
+  }
+
+  // ---------- stats (windows are calendar days, so the labels are accurate) ----------
+  function avg(arr){ return arr.reduce(function(s,e){ return s+e.rate; }, 0) / arr.length; }
+  function maxEntry(arr){ return arr.reduce(function(m,e){ return e.rate > m.rate ? e : m; }, arr[0]); }
+  function minEntry(arr){ return arr.reduce(function(m,e){ return e.rate < m.rate ? e : m; }, arr[0]); }
+  function percentileOf(rate, arr){
+    var belowOrEqual = arr.filter(function(e){ return e.rate <= rate; }).length;
+    return Math.round((belowOrEqual/arr.length)*100);
+  }
+
+  function computeStats(history){
+    var current = history[history.length-1];
+    var win180 = FX.windowDays(history, 180);
+    var win90 = FX.windowDays(history, 90);
+    var win30 = FX.windowDays(history, 30);
+    var win7 = FX.windowDays(history, 7);
+    var avg7 = avg(win7);
+    var avg30 = avg(win30);
+    var high90 = maxEntry(win90);
+    var low90 = minEntry(win90);
+    var percentile = percentileOf(current.rate, win180);
+    var change30 = win30.length > 1 ? current.rate - win30[0].rate : 0;
+    var change30Pct = (win30.length > 1 && win30[0].rate) ? (change30/win30[0].rate)*100 : 0;
+    var relDiff = avg30 ? (avg7-avg30)/avg30 : 0;
+    var trend = relDiff > 0.003 ? 'up' : relDiff < -0.003 ? 'down' : 'flat';
+    return { current:current, avg7:avg7, avg30:avg30, high90:high90, low90:low90, percentile:percentile, change30:change30, change30Pct:change30Pct, trend:trend };
+  }
+
+  function linearRegression(arr){
+    var n = arr.length, sumX=0, sumY=0, sumXY=0, sumXX=0;
+    arr.forEach(function(e,i){ sumX+=i; sumY+=e.rate; sumXY+=i*e.rate; sumXX+=i*i; });
+    var denom = (n*sumXX - sumX*sumX);
+    var slope = denom ? (n*sumXY - sumX*sumY)/denom : 0;
+    var intercept = (sumY - slope*sumX)/n;
+    return { slope:slope, intercept:intercept };
+  }
+
+  function projectNext(history, lookbackDays, steps){
+    lookbackDays = lookbackDays || 30; steps = steps || 5;
+    var win = FX.windowDays(history, lookbackDays);
+    if (win.length < 5) return [];
+    var lr = linearRegression(win);
+    var out = [];
+    for (var i=0; i<steps; i++){
+      out.push(lr.intercept + lr.slope*(win.length+i));
+    }
+    return out;
+  }
+
+  var VERDICTS = {
+    'high-up':   "The rate is high compared to its recent range and still climbing — a reasonable moment to convert if you need to.",
+    'high-down': "The rate is high compared to its recent range, though it's started easing off the top — still a reasonable moment to convert.",
+    'high-flat': "The rate is high compared to its recent range and holding steady there — a reasonable moment to convert.",
+    'mid-up':    "The rate is around its recent average and trending upward — could be worth waiting a little to see if it keeps climbing.",
+    'mid-down':  "The rate is around its recent average and trending downward — converting sooner rather than later may work in your favour.",
+    'mid-flat':  "The rate is sitting close to its recent average, with no strong signal to rush or wait.",
+    'low-up':    "The rate is low compared to its recent range but starting to recover — you may want to wait and see.",
+    'low-down':  "The rate is low compared to its recent range and still slipping — if you can hold off converting, it may be worth it.",
+    'low-flat':  "The rate is low compared to its recent range and has been flat there — no clear sign of a rebound yet."
+  };
+
+  function buildVerdict(stats){
+    var bucket = stats.percentile >= 70 ? 'high' : stats.percentile < 30 ? 'low' : 'mid';
+    return VERDICTS[bucket + '-' + stats.trend];
+  }
+
+  function trendSlope(history, days){
+    var win = FX.windowDays(history, days);
+    if (win.length < 3) return 0;
+    return linearRegression(win).slope;
+  }
+
+  function buildOutlook(stats, history){
+    var shortSlope = trendSlope(history, 7);
+    var longSlope = trendSlope(history, 30);
+
+    if (stats.trend === 'flat'){
+      return "No clear direction over the past month, so timing within the next few days likely won't matter much either way.";
+    }
+    if (stats.trend === 'up'){
+      if (shortSlope >= longSlope){
+        return "The climb still looks intact over the last week — if the pattern holds, the next few days may stay similar or edge higher. Less pressure to convert immediately, though this can turn quickly.";
+      }
+      return "The rate has been climbing, but the pace has slowed over the past week — moves like this often lose steam. If you're planning to convert soon, the next day or two may be safer than waiting for a higher peak.";
+    }
+    if (shortSlope <= longSlope){
+      return "The slide has picked up pace over the past week — if you need to convert, sooner looks more favourable than waiting, based on the recent pattern.";
+    }
+    return "The rate has eased off, but the drop has slowed over the past week — it's less clear the slide continues. Worth watching over the next few days rather than assuming it keeps falling.";
+  }
+
+  // ---------- chart ----------
+  function buildChartSVG(history, projection){
+    var W=720, H=220, padL=44, padR=12, padT=14, padB=26;
+    var plotW = W-padL-padR, plotH = H-padT-padB;
+    var recent = FX.windowDays(history, 90);
+    var values = recent.map(function(e){ return e.rate; }).concat(projection);
+    var minV = Math.min.apply(null, values);
+    var maxV = Math.max.apply(null, values);
+    var pad = (maxV-minV)*0.12 || 1;
+    var yMin = minV-pad, yMax = maxV+pad;
+    var total = recent.length + projection.length;
+
+    function xAt(i){ return padL + (i/Math.max(1, total-1))*plotW; }
+    function yAt(v){ return padT + (1-(v-yMin)/(yMax-yMin))*plotH; }
+
+    var pathHist = '';
+    recent.forEach(function(e,i){
+      pathHist += (i===0 ? 'M' : 'L') + xAt(i).toFixed(1) + ',' + yAt(e.rate).toFixed(1) + ' ';
+    });
+
+    var pathProj = '';
+    if (projection.length){
+      var lastIdx = recent.length-1;
+      pathProj = 'M' + xAt(lastIdx).toFixed(1) + ',' + yAt(recent[lastIdx].rate).toFixed(1) + ' ';
+      projection.forEach(function(v,i){
+        pathProj += 'L' + xAt(recent.length+i).toFixed(1) + ',' + yAt(v).toFixed(1) + ' ';
+      });
+    }
+
+    var dotX = xAt(recent.length-1), dotY = yAt(recent[recent.length-1].rate);
+    var yMaxLine = yAt(maxV), yMinLine = yAt(minV);
+    var dateFirst = fmtDateShort(recent[0].date);
+    var dateLast = fmtDateShort(recent[recent.length-1].date);
+
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EUR to INR rate over the last 90 days">' +
+      '<line x1="' + padL + '" y1="' + yMaxLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMaxLine.toFixed(1) + '" class="grid-line" />' +
+      '<line x1="' + padL + '" y1="' + yMinLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMinLine.toFixed(1) + '" class="grid-line" />' +
+      '<text x="4" y="' + (yMaxLine+4).toFixed(1) + '" class="axis-label">' + maxV.toFixed(2) + '</text>' +
+      '<text x="4" y="' + (yMinLine+4).toFixed(1) + '" class="axis-label">' + minV.toFixed(2) + '</text>' +
+      '<text x="' + padL + '" y="' + (H-6) + '" class="axis-label">' + dateFirst + '</text>' +
+      '<text x="' + (W-padR) + '" y="' + (H-6) + '" class="axis-label" text-anchor="end">' + dateLast + '</text>' +
+      (pathProj ? '<path d="' + pathProj + '" class="proj-line" fill="none" />' : '') +
+      '<path d="' + pathHist + '" class="hist-line" fill="none" />' +
+      '<circle cx="' + dotX.toFixed(1) + '" cy="' + dotY.toFixed(1) + '" r="4" class="current-dot" />' +
+      '</svg>';
+  }
+
+  // ---------- settings ----------
+  function systemTheme(){
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function setTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    els.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', theme === 'dark' ? '#181C16' : '#EDEAE1');
+  }
+
+  // Only bumps the sync timestamp when a synced field (target, theme, amount) changes.
+  async function saveSettings(patch){
+    var touch = ['targetRate','theme','amount'].some(function(k){ return k in patch; });
+    currentState = await FX.updateState(function(s){ Object.assign(s, patch); }, touch);
+    if (touch) sbPushSoon();
+  }
+
+  function applyState(){
+    setTheme(currentState.theme || systemTheme());
+    els.targetInput.value = currentState.targetRate != null ? currentState.targetRate : '';
+    els.amountInput.value = currentState.amount > 0 ? currentState.amount : 1000;
+    updateNotifyUI();
+    updateConverterOutput();
+  }
+
+  // ---------- notifications ----------
+  function notifySupported(){ return 'Notification' in window; }
+  function notifyActive(){ return notifySupported() && Notification.permission === 'granted' && !!currentState.notifyEnabled; }
+
+  function updateNotifyUI(){
+    var on = notifyActive();
+    els.enableNotifyBtn.textContent = on ? 'Turn off notifications' : 'Enable notifications';
+    if (!notifySupported()) els.notifyStatus.textContent = 'Not available in this browser. On iPhone, add the app to your Home Screen and open it from there.';
+    else if (on) els.notifyStatus.textContent = 'Notifications on ✓';
+    else if (Notification.permission === 'denied') els.notifyStatus.textContent = 'Blocked in your browser settings. Allow notifications for this site to use alerts.';
+    else els.notifyStatus.textContent = 'Notifications are off.';
+  }
+
+  async function registerPeriodicSync(){
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      var reg = await navigator.serviceWorker.ready;
+      if (!reg.periodicSync) return;
+      var st = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      if (st.state === 'granted') await reg.periodicSync.register('fx-check', { minInterval: 12 * 60 * 60 * 1000 });
+    } catch(e) {}
+  }
+  async function unregisterPeriodicSync(){
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      var reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.periodicSync) await reg.periodicSync.unregister('fx-check');
+    } catch(e) {}
+  }
+
+  async function toggleNotifications(){
+    if (notifyActive()){
+      await saveSettings({ notifyEnabled: false });
+      unregisterPeriodicSync();
+      updateNotifyUI();
+      return;
+    }
+    if (!notifySupported()){ updateNotifyUI(); return; }
+    var perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (perm !== 'granted'){ updateNotifyUI(); return; }
+    // Whatever is true right now counts as already seen, so turning alerts on doesn't fire instantly.
+    await saveSettings(Object.assign({ notifyEnabled: true }, FX.acknowledge(currentHistory, currentState)));
+    updateNotifyUI();
+    var t = currentState.targetRate;
+    FX.showNotes([{
+      tag: 'fx-welcome',
+      title: 'Alerts are on',
+      body: "You'll hear about new 90-day highs" + (t != null ? ' and when 1 EUR reaches ' + fmtStat(t) : '') + '.'
+    }]);
+    registerPeriodicSync();
+  }
+
+  // ---------- rendering ----------
+  function animateHero(target){
+    var el = els.heroValue;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || heroAnimated){ el.textContent = target.toFixed(2); heroAnimated = true; return; }
+    heroAnimated = true;
+    var start = performance.now(), duration = 700;
+    function step(now){
+      var t = Math.min(1, (now-start)/duration);
+      var eased = 1 - Math.pow(1-t, 3);
+      el.textContent = (target*eased).toFixed(2);
+      if (t < 1) requestAnimationFrame(step); else el.textContent = target.toFixed(2);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function updateConverterOutput(){
+    var amt = parseFloat(els.amountInput.value);
+    if (!lastStats || isNaN(amt)){ els.convertedOutput.textContent = '—'; return; }
+    var inr = amt * lastStats.current.rate;
+    els.convertedOutput.textContent = '₹' + inr.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  }
+
+  function renderAll(){
+    if (!currentHistory.length) return;
+    var stats = computeStats(currentHistory);
+    var projection = projectNext(currentHistory);
+    lastStats = stats;
+
+    els.app.hidden = false;
+    els.errorState.hidden = true;
+
+    animateHero(stats.current.rate);
+    els.heroDate.textContent = fmtDateShort(stats.current.date);
+    updateConverterOutput();
+
+    els.verdictText.textContent = buildVerdict(stats);
+    els.outlookText.textContent = buildOutlook(stats, currentHistory);
+
+    els.chartContainer.innerHTML = buildChartSVG(currentHistory, projection);
+
+    els.statAvg7.textContent = fmtStat(stats.avg7);
+    els.statAvg30.textContent = fmtStat(stats.avg30);
+    els.statHigh90.textContent = fmtStat(stats.high90.rate) + ' (' + fmtDateShort(stats.high90.date) + ')';
+    els.statLow90.textContent = fmtStat(stats.low90.rate) + ' (' + fmtDateShort(stats.low90.date) + ')';
+    els.statChange30.textContent = fmtChange(stats.change30, stats.change30Pct);
+    els.statPercentile.textContent = 'Higher than ' + stats.percentile + '% of days';
+  }
+
+  function setStatus(kind, date){
+    var dot = els.statusDot, text = els.statusText;
+    if (kind === 'loading'){ dot.style.background = 'var(--wait)'; text.textContent = 'Loading…'; }
+    else if (kind === 'live'){ dot.style.background = 'var(--good)'; text.textContent = 'Updated · ' + fmtDateShort(date); }
+    else if (kind === 'cached'){ dot.style.background = 'var(--wait)'; text.textContent = 'Cached · ' + fmtDateShort(date); }
+    else if (kind === 'cached-error'){ dot.style.background = 'var(--wait)'; text.textContent = "Couldn't refresh · " + fmtDateShort(date); }
+    else if (kind === 'error'){ dot.style.background = 'var(--bad)'; text.textContent = "Couldn't load rates"; }
+  }
+
+  async function refresh(isInitial){
+    if (isInitial) setStatus('loading');
+    try {
+      var fresh = await FX.syncHistory();
+      currentHistory = fresh;
+      lastSyncAt = Date.now();
+      setStatus('live', fresh[fresh.length-1].date);
+      renderAll();
+    } catch(err){
+      if (currentHistory.length){
+        setStatus('cached-error', currentHistory[currentHistory.length-1].date);
+      } else {
+        setStatus('error');
+        els.app.hidden = true;
+        els.errorState.hidden = false;
+      }
+      return;
+    }
+    try { await FX.checkAlerts(currentHistory); } catch(e) {}
+  }
+
+  // ---------- Supabase settings sync (optional; email + password, per-user rows) ----------
+  var SB_URL = (CFG.SUPABASE_URL || '').replace(/\/+$/, '');
+  var SB_KEY = CFG.SUPABASE_ANON_KEY || '';
+  var SB_TABLE = 'fx_tracker_settings';
+  var SB_SESSION = 'fx-sb-session';
+  var sbSession = null;
+  var sbPushTimer = null;
+
+  function sbOn(){ return !!(SB_URL && SB_KEY); }
+  function sbLoadSession(){
+    try { sbSession = JSON.parse(localStorage.getItem(SB_SESSION) || 'null'); } catch(e){ sbSession = null; }
+  }
+  function sbSaveSession(s){
+    sbSession = s;
+    try { if (s) localStorage.setItem(SB_SESSION, JSON.stringify(s)); else localStorage.removeItem(SB_SESSION); } catch(e){}
+  }
+
+  async function sbAuth(grant, body){
+    var res = await fetch(SB_URL + '/auth/v1/token?grant_type=' + grant, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if (!res.ok){
+      var err = new Error(data.error_description || data.msg || data.message || 'Sign-in failed');
+      err.authFailed = true;
+      throw err;
+    }
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in || 3600)),
+      user_id: data.user && data.user.id,
+      email: (data.user && data.user.email) || (sbSession && sbSession.email) || ''
+    };
+  }
+
+  async function sbToken(){
+    if (!sbSession) return null;
+    if (sbSession.expires_at - 60 > Math.floor(Date.now()/1000)) return sbSession.access_token;
+    try {
+      var s = await sbAuth('refresh_token', { refresh_token: sbSession.refresh_token });
+      sbSaveSession(s);
+      return s.access_token;
+    } catch(e){
+      // Only sign out if Supabase rejected the session; being offline keeps it.
+      if (e.authFailed){ sbSaveSession(null); renderSync(); }
+      return null;
+    }
+  }
+
+  async function sbRequest(path, opts){
+    var token = await sbToken();
+    if (!token) throw new Error('Not signed in');
+    opts = opts || {};
+    opts.headers = Object.assign({ apikey: SB_KEY, Authorization: 'Bearer ' + token }, opts.headers || {});
+    var res = await fetch(SB_URL + '/rest/v1/' + path, opts);
+    if (!res.ok) throw new Error('Sync failed (' + res.status + ')');
+    return res;
+  }
+
+  async function sbPull(){
+    var res = await sbRequest(SB_TABLE + '?select=value');
+    var rows = await res.json();
+    return rows && rows.length ? rows[0].value : null;
+  }
+
+  async function sbPush(){
+    var s = currentState;
+    await sbRequest(SB_TABLE + '?on_conflict=user_id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        user_id: sbSession.user_id,
+        value: { targetRate: s.targetRate, theme: s.theme, amount: s.amount, updatedAt: s.updatedAt },
+        updated_at: new Date().toISOString()
+      })
+    });
+  }
+
+  function sbPushSoon(){
+    if (!sbOn() || !sbSession) return;
+    clearTimeout(sbPushTimer);
+    sbPushTimer = setTimeout(function(){
+      sbPush().then(function(){ setSyncMsg(''); }).catch(function(){ setSyncMsg("Couldn't sync. Will retry on next open."); });
+    }, 800);
+  }
+
+  // Last write wins on the three synced fields.
+  async function syncNow(){
+    if (!sbOn() || !sbSession) return;
+    try {
+      var remote = await sbPull();
+      var localAt = currentState.updatedAt || 0;
+      if (remote && (remote.updatedAt || 0) > localAt){
+        currentState = await FX.updateState(function(s){
+          s.targetRate = remote.targetRate == null ? null : remote.targetRate;
+          s.theme = remote.theme || null;
+          if (remote.amount > 0) s.amount = remote.amount;
+          s.updatedAt = remote.updatedAt;
+          s.targetFired = FX.targetFiredFor(currentHistory, s.targetRate);
+        }, false);
+        applyState();
+      } else if (remote ? localAt > (remote.updatedAt || 0) : localAt > 0){
+        await sbPush();
+      }
+      setSyncMsg('');
+    } catch(e){
+      setSyncMsg("Couldn't sync. Will retry on next open.");
+    }
+  }
+
+  function setSyncMsg(msg){ els.syncMsg.textContent = msg; }
+
+  function renderSync(){
+    if (!sbOn()){ els.syncBlock.hidden = true; return; }
+    els.syncBlock.hidden = false;
+    if (sbSession){
+      els.syncStatus.textContent = 'Settings synced · ' + (sbSession.email || 'signed in');
+      els.syncToggle.textContent = 'Sign out';
+      els.syncForm.hidden = true;
+    } else {
+      els.syncStatus.textContent = 'Settings sync is off.';
+      els.syncToggle.textContent = els.syncForm.hidden ? 'Sign in' : 'Cancel';
+    }
+  }
+
+  // ---------- wiring ----------
+  function wireControls(){
+    els.refreshBtn.addEventListener('click', function(){ refresh(true); });
+    els.retryBtn.addEventListener('click', function(){ refresh(true); });
+
+    els.amountInput.addEventListener('input', function(){
+      updateConverterOutput();
+      clearTimeout(amountTimer);
+      amountTimer = setTimeout(function(){
+        var v = parseFloat(els.amountInput.value);
+        if (!isNaN(v) && v >= 0) saveSettings({ amount: v });
+      }, 600);
+    });
+
+    els.themeToggle.addEventListener('click', async function(){
+      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+      await saveSettings({ theme: next });
+    });
+
+    els.targetForm.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var val = parseFloat(els.targetInput.value);
+      var target = (isNaN(val) || val <= 0) ? null : val;
+      var fired = FX.targetFiredFor(currentHistory, target);
+      await saveSettings({ targetRate: target, targetFired: fired });
+      if (target == null){
+        els.targetStatus.textContent = 'Target cleared.';
+      } else {
+        var msg = 'Alert set for ' + fmtStat(target) + '.';
+        if (fired) msg += " The rate is already above this, so you'll be alerted if it dips below and comes back.";
+        if (!notifyActive()) msg += ' Turn on notifications below to receive it.';
+        els.targetStatus.textContent = msg;
+      }
+    });
+
+    els.enableNotifyBtn.addEventListener('click', toggleNotifications);
+
+    els.syncToggle.addEventListener('click', function(){
+      if (sbSession){
+        sbSaveSession(null);
+        setSyncMsg('');
+        renderSync();
+      } else {
+        els.syncForm.hidden = !els.syncForm.hidden;
+        renderSync();
+      }
+    });
+    els.syncForm.addEventListener('submit', async function(e){
+      e.preventDefault();
+      setSyncMsg('Signing in…');
+      try {
+        var s = await sbAuth('password', { email: els.syncEmail.value.trim(), password: els.syncPass.value });
+        sbSaveSession(s);
+        els.syncPass.value = '';
+        els.syncForm.hidden = true;
+        renderSync();
+        await syncNow();
+      } catch(err){
+        setSyncMsg(err.message || 'Sign-in failed');
+      }
+    });
+
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'visible' && Date.now() - lastSyncAt > 30*60*1000) refresh(false);
+    });
+  }
+
+  function registerSW(){
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+
+  async function init(){
+    ['statusDot','statusText','refreshBtn','themeToggle','app','heroValue','heroDate','amountInput','convertedOutput',
+     'verdictText','outlookText','chartContainer','statAvg7','statAvg30','statHigh90','statLow90','statChange30','statPercentile',
+     'targetForm','targetInput','targetStatus','enableNotifyBtn','notifyStatus','errorState','errorText','retryBtn',
+     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg']
+      .forEach(function(id){ els[id] = $(id); });
+
+    registerSW();
+    currentState = await FX.loadState();
+    applyState();
+    wireControls();
+
+    sbLoadSession();
+    renderSync();
+
+    var cached = await FX.loadHistory();
+    if (cached && cached.length){
+      currentHistory = cached;
+      setStatus('cached', cached[cached.length-1].date);
+      renderAll();
+    }
+
+    if (currentState.notifyEnabled) registerPeriodicSync();
+
+    await refresh(!cached || !cached.length);
+    syncNow();
+    setInterval(function(){ refresh(false); }, 60*60*1000);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>

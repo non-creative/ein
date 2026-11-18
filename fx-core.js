@@ -11,7 +11,7 @@
     { url: 'https://api.frankfurter.app/', query: '?from=EUR&to=INR' }
   ];
   var CHUNK_DAYS = 80;   // every request spans < 90 days so the API returns daily points
-  var KEEP_DAYS = 270;   // history kept on-device
+  var KEEP_DAYS = 330;   // history kept on-device (6 months for the forecast + room to backtest it)
   var HIGH_DAYS = 90;    // "new high" means highest in this many days
 
   var DATA_CACHE = 'fx-data';
@@ -103,7 +103,7 @@
   async function fetchFull() {
     var today = new Date();
     var chunks = [];
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 4; i++) {
       var end = addDays(today, -i * (CHUNK_DAYS + 1));
       chunks.push([isoDate(addDays(end, -CHUNK_DAYS)), isoDate(end)]);
     }
@@ -259,7 +259,165 @@
     } catch (e) { /* offline or API down: try again next time */ }
   }
 
+  // ---------- forecast ----------
+  // Simulates the next `horizon` business days by replaying chunks of the last 6 months of
+  // daily moves (block bootstrap), plus a small, heavily shrunk version of the recent trend.
+  // FX rates are close to a random walk, so the useful output is the range and the odds,
+  // not a single predicted number.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function hashSeed(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function quantile(sorted, q) {
+    var pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  }
+  function median(arr) {
+    if (!arr.length) return null;
+    var s = arr.slice().sort(function (a, b) { return a - b; });
+    return quantile(s, 0.5);
+  }
+  function logSlope(entries) {
+    var n = entries.length, sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (var i = 0; i < n; i++) {
+      var y = Math.log(entries[i].rate);
+      sx += i; sy += y; sxy += i * y; sxx += i * i;
+    }
+    var d = n * sxx - sx * sx;
+    return d ? (n * sxy - sx * sy) / d : 0;
+  }
+  // Business days after an ISO date, skipping weekends.
+  function addBusinessDays(iso, n) {
+    var d = parseISO(iso), added = 0;
+    while (added < n) {
+      d = addDays(d, 1);
+      var dow = d.getUTCDay();
+      if (dow !== 0 && dow !== 6) added++;
+    }
+    return isoDate(d);
+  }
+
+  var FC_LOOKBACK = 180, FC_BLOCK = 5, FC_SHRINK = 0.25, FC_BEAT = 0.005;
+
+  function forecast(history, opts) {
+    opts = opts || {};
+    var horizon = opts.horizon || 20;
+    var nPaths = opts.paths || 4000;
+    var win = windowDays(history, FC_LOOKBACK);
+    if (win.length < 60) return null;
+
+    var rets = [];
+    for (var i = 1; i < win.length; i++) rets.push(Math.log(win[i].rate / win[i - 1].rate));
+    var mean = rets.reduce(function (s, r) { return s + r; }, 0) / rets.length;
+    var sigma = Math.sqrt(rets.reduce(function (s, r) { return s + (r - mean) * (r - mean); }, 0) / (rets.length - 1));
+    var centered = rets.map(function (r) { return r - mean; });
+
+    // Recent 30-day trend, shrunk to a quarter and capped at a quarter of a day's typical move.
+    var drift = FC_SHRINK * logSlope(windowDays(history, 30));
+    var cap = FC_SHRINK * sigma;
+    drift = Math.max(-cap, Math.min(cap, drift));
+
+    var last = history[history.length - 1];
+    var start = last.rate;
+    var high90 = Math.max.apply(null, windowDays(history, 90).map(function (e) { return e.rate; }));
+    var target = opts.target != null && opts.target > start ? opts.target : null;
+    var beatLevel = start * (1 + FC_BEAT);
+
+    var rng = mulberry32(hashSeed(last.date + ':' + start.toFixed(4) + ':' + win.length));
+    var steps = [];
+    for (var k = 0; k < horizon; k++) steps.push(new Float64Array(nPaths));
+    var beatDays = [], highDays = [], targetDays = [];
+    var maxStart = centered.length - FC_BLOCK;
+
+    for (var p = 0; p < nPaths; p++) {
+      var logR = Math.log(start), b = 0, idx = 0;
+      var hitBeat = false, hitHigh = false, hitTarget = false;
+      for (var s = 0; s < horizon; s++) {
+        if (b === 0) idx = Math.floor(rng() * (maxStart + 1));
+        logR += centered[idx + b] + drift;
+        b = (b + 1) % FC_BLOCK;
+        var r = Math.exp(logR);
+        steps[s][p] = r;
+        if (!hitBeat && r >= beatLevel) { hitBeat = true; beatDays.push(s + 1); }
+        if (!hitHigh && r > high90) { hitHigh = true; highDays.push(s + 1); }
+        if (target && !hitTarget && r >= target) { hitTarget = true; targetDays.push(s + 1); }
+      }
+    }
+
+    var bands = [], higher = [];
+    for (var j = 0; j < horizon; j++) {
+      var col = Array.prototype.slice.call(steps[j]).sort(function (a, b) { return a - b; });
+      bands.push({
+        date: addBusinessDays(last.date, j + 1),
+        p10: quantile(col, 0.10), p50: quantile(col, 0.50), p90: quantile(col, 0.90)
+      });
+      var above = 0;
+      for (var q = 0; q < nPaths; q++) if (steps[j][q] > start) above++;
+      higher.push(above / nPaths);
+    }
+
+    function hitInfo(days) {
+      var d = median(days);
+      return { p: days.length / nPaths, typicalDay: d, typicalDate: d ? addBusinessDays(last.date, Math.round(d)) : null };
+    }
+
+    return {
+      start: start,
+      from: last.date,
+      horizon: horizon,
+      sigma: sigma,
+      drift: drift,
+      bands: bands,
+      pHigher: higher,                // index k = after k+1 business days
+      beatLevel: beatLevel,
+      beat: hitInfo(beatDays),        // climbs 0.5%+ above today at some point
+      high90: high90,
+      newHigh: hitInfo(highDays),     // tops the 90-day high at some point
+      target: target,
+      targetHit: target ? hitInfo(targetDays) : null
+    };
+  }
+
+  // Re-runs the model at past dates and checks how often the real rate `horizon` business
+  // days later landed inside the 10–90% range. A well-calibrated model lands near 80%.
+  // Yields between tests so it never freezes the page.
+  async function backtestForecast(history, opts) {
+    opts = opts || {};
+    var horizon = opts.horizon || 20;
+    var maxTests = opts.maxTests || 60;
+    var tests = 0, inside = 0, dirRight = 0, dirTests = 0;
+    for (var i = history.length - 1 - horizon; i >= 0 && tests < maxTests; i--) {
+      var past = history.slice(0, i + 1);
+      if (daysBetween(past[0].date, past[past.length - 1].date) < FC_LOOKBACK - 5) break;
+      var f = forecast(past, { horizon: horizon, paths: opts.paths || 600 });
+      if (!f) break;
+      var actual = history[i + horizon].rate;
+      var band = f.bands[horizon - 1];
+      tests++;
+      if (actual >= band.p10 && actual <= band.p90) inside++;
+      var pUp = f.pHigher[horizon - 1];
+      if (Math.abs(pUp - 0.5) >= 0.05) {
+        dirTests++;
+        if ((pUp > 0.5) === (actual > past[past.length - 1].rate)) dirRight++;
+      }
+      if (tests % 4 === 0) await new Promise(function (r) { setTimeout(r, 0); });
+    }
+    return { tests: tests, coverage: tests ? inside / tests : null, dirTests: dirTests, dirHit: dirTests ? dirRight / dirTests : null };
+  }
+
   var FX = {
+    forecast: forecast,
+    backtestForecast: backtestForecast,
+    addBusinessDays: addBusinessDays,
     windowDays: windowDays,
     mergeEntries: mergeEntries,
     loadHistory: loadHistory,

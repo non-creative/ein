@@ -122,7 +122,14 @@
   .grid-line{ stroke:var(--line); stroke-width:1; stroke-dasharray:2,3; }
   .axis-label{ font-family:var(--mono); font-size:10px; fill:var(--ink-soft); }
   .hist-line{ stroke:var(--accent); stroke-width:2; }
-  .proj-line{ stroke:var(--ink-soft); stroke-width:1.5; stroke-dasharray:4,4; }
+  .fc-band{ fill:var(--accent); fill-opacity:.14; stroke:none; }
+  .fc-mid{ stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4,4; fill:none; opacity:.8; }
+  .today-line{ stroke:var(--line); stroke-width:1; }
+
+  .forecast h2{ font-family:var(--serif); font-size:16px; font-weight:600; margin:0 0 10px; }
+  #fcHeadline{ font-family:var(--serif); font-size:16px; line-height:1.5; margin:0 0 6px; }
+  #fcWhen{ font-size:13px; color:var(--ink-soft); margin:0 0 10px; }
+  .forecast .stat-row small{ font-weight:400; color:var(--ink-soft); }
   .current-dot{ fill:var(--accent); }
 
   [hidden]{ display:none !important; }
@@ -163,10 +170,25 @@
 
     <section class="chart-section">
       <div id="chartContainer"></div>
-      <div class="chart-caption">Solid line: last 90 days. Dashed: simple trend if the last month's pattern continues.</div>
+      <div class="chart-caption">Solid line: last 90 days. Shaded: where 8 in 10 simulations land over the next 4 weeks, dashed line in the middle.</div>
     </section>
 
     <div class="rule"></div>
+
+    <section class="forecast" id="forecastSection" hidden>
+      <h2>Next 4 weeks</h2>
+      <p id="fcHeadline">—</p>
+      <p id="fcWhen"></p>
+      <div class="stat-row"><span>Higher than today in 1 week</span><span id="fcWeek1">—</span></div>
+      <div class="stat-row"><span>Higher than today in 4 weeks</span><span id="fcWeek4">—</span></div>
+      <div class="stat-row"><span id="fcRangeLabel">Likely range in 4 weeks</span><span id="fcRange">—</span></div>
+      <div class="stat-row"><span id="fcHighLabel">New 90-day high</span><span id="fcHigh">—</span></div>
+      <div class="stat-row" id="fcTargetRow" hidden><span id="fcTargetLabel">Reaches your target</span><span id="fcTarget">—</span></div>
+      <p class="hint" id="fcMethod">From 4,000 simulations that replay the last 6 months of daily moves. Currency moves are mostly random, so read these as odds, not promises.</p>
+      <p class="hint" id="fcBacktest"></p>
+    </section>
+
+    <div class="rule" id="forecastRule" hidden></div>
 
     <section class="stats">
       <div class="stat-row"><span>7-day average</span><span id="statAvg7">—</span></div>
@@ -283,18 +305,6 @@
     return { slope:slope, intercept:intercept };
   }
 
-  function projectNext(history, lookbackDays, steps){
-    lookbackDays = lookbackDays || 30; steps = steps || 5;
-    var win = FX.windowDays(history, lookbackDays);
-    if (win.length < 5) return [];
-    var lr = linearRegression(win);
-    var out = [];
-    for (var i=0; i<steps; i++){
-      out.push(lr.intercept + lr.slope*(win.length+i));
-    }
-    return out;
-  }
-
   var VERDICTS = {
     'high-up':   "The rate is high compared to its recent range and still climbing — a reasonable moment to convert if you need to.",
     'high-down': "The rate is high compared to its recent range, though it's started easing off the top — still a reasonable moment to convert.",
@@ -338,50 +348,124 @@
   }
 
   // ---------- chart ----------
-  function buildChartSVG(history, projection){
+  function buildChartSVG(history, fc){
     var W=720, H=220, padL=44, padR=12, padT=14, padB=26;
     var plotW = W-padL-padR, plotH = H-padT-padB;
     var recent = FX.windowDays(history, 90);
-    var values = recent.map(function(e){ return e.rate; }).concat(projection);
+    var bands = fc ? fc.bands : [];
+    var values = recent.map(function(e){ return e.rate; });
+    bands.forEach(function(b){ values.push(b.p10, b.p90); });
     var minV = Math.min.apply(null, values);
     var maxV = Math.max.apply(null, values);
     var pad = (maxV-minV)*0.12 || 1;
     var yMin = minV-pad, yMax = maxV+pad;
-    var total = recent.length + projection.length;
+    var total = recent.length + bands.length;
 
     function xAt(i){ return padL + (i/Math.max(1, total-1))*plotW; }
     function yAt(v){ return padT + (1-(v-yMin)/(yMax-yMin))*plotH; }
+    function pt(i, v){ return xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1); }
 
     var pathHist = '';
-    recent.forEach(function(e,i){
-      pathHist += (i===0 ? 'M' : 'L') + xAt(i).toFixed(1) + ',' + yAt(e.rate).toFixed(1) + ' ';
-    });
+    recent.forEach(function(e,i){ pathHist += (i===0 ? 'M' : 'L') + pt(i, e.rate) + ' '; });
 
-    var pathProj = '';
-    if (projection.length){
-      var lastIdx = recent.length-1;
-      pathProj = 'M' + xAt(lastIdx).toFixed(1) + ',' + yAt(recent[lastIdx].rate).toFixed(1) + ' ';
-      projection.forEach(function(v,i){
-        pathProj += 'L' + xAt(recent.length+i).toFixed(1) + ',' + yAt(v).toFixed(1) + ' ';
+    var lastIdx = recent.length-1, lastRate = recent[lastIdx].rate;
+    var fcSvg = '';
+    if (bands.length){
+      var upper = [pt(lastIdx, lastRate)], lower = [], mid = 'M' + pt(lastIdx, lastRate) + ' ';
+      bands.forEach(function(b,i){
+        upper.push(pt(lastIdx+1+i, b.p90));
+        lower.unshift(pt(lastIdx+1+i, b.p10));
+        mid += 'L' + pt(lastIdx+1+i, b.p50) + ' ';
       });
+      fcSvg = '<line x1="' + xAt(lastIdx).toFixed(1) + '" y1="' + padT + '" x2="' + xAt(lastIdx).toFixed(1) + '" y2="' + (H-padB) + '" class="today-line" />' +
+        '<polygon points="' + upper.concat(lower).join(' ') + '" class="fc-band" />' +
+        '<path d="' + mid + '" class="fc-mid" />';
     }
 
-    var dotX = xAt(recent.length-1), dotY = yAt(recent[recent.length-1].rate);
     var yMaxLine = yAt(maxV), yMinLine = yAt(minV);
     var dateFirst = fmtDateShort(recent[0].date);
-    var dateLast = fmtDateShort(recent[recent.length-1].date);
+    var dateLast = fmtDateShort(bands.length ? bands[bands.length-1].date : recent[lastIdx].date);
+    var label = 'EUR to INR rate over the last 90 days' + (bands.length ? ', with the likely range for the next 4 weeks' : '');
 
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EUR to INR rate over the last 90 days">' +
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + label + '">' +
       '<line x1="' + padL + '" y1="' + yMaxLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMaxLine.toFixed(1) + '" class="grid-line" />' +
       '<line x1="' + padL + '" y1="' + yMinLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMinLine.toFixed(1) + '" class="grid-line" />' +
       '<text x="4" y="' + (yMaxLine+4).toFixed(1) + '" class="axis-label">' + maxV.toFixed(2) + '</text>' +
       '<text x="4" y="' + (yMinLine+4).toFixed(1) + '" class="axis-label">' + minV.toFixed(2) + '</text>' +
       '<text x="' + padL + '" y="' + (H-6) + '" class="axis-label">' + dateFirst + '</text>' +
       '<text x="' + (W-padR) + '" y="' + (H-6) + '" class="axis-label" text-anchor="end">' + dateLast + '</text>' +
-      (pathProj ? '<path d="' + pathProj + '" class="proj-line" fill="none" />' : '') +
+      fcSvg +
       '<path d="' + pathHist + '" class="hist-line" fill="none" />' +
-      '<circle cx="' + dotX.toFixed(1) + '" cy="' + dotY.toFixed(1) + '" r="4" class="current-dot" />' +
+      '<circle cx="' + xAt(lastIdx).toFixed(1) + '" cy="' + yAt(lastRate).toFixed(1) + '" r="4" class="current-dot" />' +
       '</svg>';
+  }
+
+  // ---------- forecast panel ----------
+  var backtestCache = { key: null, result: null, running: null };
+
+  function pct(p){
+    if (p < 0.01) return 'Under 1%';
+    if (p > 0.99) return 'Over 99%';
+    return Math.round(p*100) + '%';
+  }
+  function oddsWithDate(info){
+    if (!info) return '—';
+    if (info.p < 0.01 || !info.typicalDate) return pct(info.p);
+    return pct(info.p) + ' <small>· by ~' + fmtDateShort(info.typicalDate) + '</small>';
+  }
+
+  function renderForecast(fc){
+    var show = !!fc;
+    els.forecastSection.hidden = !show;
+    els.forecastRule.hidden = !show;
+    if (!show) return;
+
+    var p4 = fc.pHigher[19], p1 = fc.pHigher[4];
+    var head;
+    if (p4 >= 0.6) head = 'Leaning higher: about ' + Math.round(p4*100) + '% of simulations end above today’s rate in 4 weeks.';
+    else if (p4 <= 0.4) head = 'Leaning lower: only about ' + Math.round(p4*100) + '% of simulations end above today in 4 weeks, so waiting is more likely to cost you than pay off.';
+    else head = 'No real edge: it’s close to a coin flip whether the rate is higher in 4 weeks.';
+    els.fcHeadline.textContent = head;
+
+    var b = fc.beat;
+    els.fcWhen.textContent = b.p >= 0.01 && b.typicalDate
+      ? pct(b.p) + ' chance it reaches ' + fmtStat(fc.beatLevel) + ' (+0.5%) at some point. When it does, it’s typically by ' + fmtDateShort(b.typicalDate) + '.'
+      : 'Little chance of it climbing 0.5% above today in the next 4 weeks.';
+
+    els.fcWeek1.textContent = pct(p1);
+    els.fcWeek4.textContent = pct(p4);
+    var end = fc.bands[fc.bands.length-1];
+    els.fcRangeLabel.textContent = 'Likely range by ' + fmtDateShort(end.date);
+    els.fcRange.textContent = fmtStat(end.p10) + ' – ' + fmtStat(end.p90);
+    els.fcHighLabel.textContent = 'New 90-day high (above ' + fmtStat(fc.high90) + ')';
+    els.fcHigh.innerHTML = oddsWithDate(fc.newHigh);
+
+    if (fc.targetHit){
+      els.fcTargetRow.hidden = false;
+      els.fcTargetLabel.textContent = 'Reaches your target (' + fmtStat(fc.target) + ')';
+      els.fcTarget.innerHTML = oddsWithDate(fc.targetHit);
+    } else {
+      els.fcTargetRow.hidden = true;
+    }
+
+    // Self-check on past data, run after paint (it re-runs the model ~60 times).
+    var key = currentHistory.length + ':' + currentHistory[currentHistory.length-1].date;
+    if (backtestCache.key === key) { showBacktest(backtestCache.result); return; }
+    els.fcBacktest.textContent = '';
+    if (backtestCache.running === key) return;
+    backtestCache.running = key;
+    setTimeout(function(){
+      FX.backtestForecast(currentHistory).then(function(bt){
+        backtestCache = { key: key, result: bt, running: null };
+        if (key === currentHistory.length + ':' + currentHistory[currentHistory.length-1].date) showBacktest(bt);
+      });
+    }, 300);
+  }
+
+  function showBacktest(bt){
+    if (!bt || bt.tests < 20) { els.fcBacktest.textContent = ''; return; }
+    els.fcBacktest.textContent = 'Checked against the last ' + bt.tests + ' trading days: the real rate 4 weeks later landed inside the predicted range ' +
+      Math.round(bt.coverage*100) + '% of the time (aim: 80%).';
   }
 
   // ---------- settings ----------
@@ -488,7 +572,7 @@
   function renderAll(){
     if (!currentHistory.length) return;
     var stats = computeStats(currentHistory);
-    var projection = projectNext(currentHistory);
+    var fc = FX.forecast(currentHistory, { target: currentState && currentState.targetRate });
     lastStats = stats;
 
     els.app.hidden = false;
@@ -501,7 +585,8 @@
     els.verdictText.textContent = buildVerdict(stats);
     els.outlookText.textContent = buildOutlook(stats, currentHistory);
 
-    els.chartContainer.innerHTML = buildChartSVG(currentHistory, projection);
+    els.chartContainer.innerHTML = buildChartSVG(currentHistory, fc);
+    renderForecast(fc);
 
     els.statAvg7.textContent = fmtStat(stats.avg7);
     els.statAvg30.textContent = fmtStat(stats.avg30);
@@ -645,6 +730,7 @@
           s.targetFired = FX.targetFiredFor(currentHistory, s.targetRate);
         }, false);
         applyState();
+        renderAll();
       } else if (remote ? localAt > (remote.updatedAt || 0) : localAt > 0){
         await sbPush();
       }
@@ -695,6 +781,7 @@
       var target = (isNaN(val) || val <= 0) ? null : val;
       var fired = FX.targetFiredFor(currentHistory, target);
       await saveSettings({ targetRate: target, targetFired: fired });
+      renderAll();
       if (target == null){
         els.targetStatus.textContent = 'Target cleared.';
       } else {
@@ -746,7 +833,8 @@
     ['statusDot','statusText','refreshBtn','themeToggle','app','heroValue','heroDate','amountInput','convertedOutput',
      'verdictText','outlookText','chartContainer','statAvg7','statAvg30','statHigh90','statLow90','statChange30','statPercentile',
      'targetForm','targetInput','targetStatus','enableNotifyBtn','notifyStatus','errorState','errorText','retryBtn',
-     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg']
+     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg',
+     'forecastSection','forecastRule','fcHeadline','fcWhen','fcWeek1','fcWeek4','fcRangeLabel','fcRange','fcHighLabel','fcHigh','fcTargetRow','fcTargetLabel','fcTarget','fcBacktest']
       .forEach(function(id){ els[id] = $(id); });
 
     registerSW();

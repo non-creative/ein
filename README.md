@@ -1,6 +1,6 @@
 # EUR → INR Tracker
 
-Installable PWA. Live EUR→INR rate from ECB reference rates (Frankfurter API), a plain-language read on when to convert, and alerts for new 90-day highs or your target rate. No build step.
+Installable PWA. Live EUR→INR rate from ECB reference rates (Frankfurter API), a plain-language read on when to convert, a 4-week forecast (likely range, odds of going higher, and roughly when), and alerts for new 90-day highs or your target rate. No build step.
 
 ## Deploy on GitHub Pages
 

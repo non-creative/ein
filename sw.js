@@ -1,7 +1,7 @@
-/* sw.js — offline app shell, background rate checks, notification clicks. */
+/* sw.js — ein: offline app shell, background rate checks, notification clicks. */
 importScripts('fx-core.js');
 
-var SHELL = 'eur-inr-shell-v3';
+var SHELL = 'ein-shell-v4';
 var SHELL_FILES = [
   './', 'index.html', 'fx-core.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon.svg'
@@ -19,7 +19,7 @@ self.addEventListener('activate', function (e) {
     var names = await caches.keys();
     // Only prune old shell caches. 'fx-data' holds rates + settings and must survive.
     await Promise.all(names
-      .filter(function (n) { return n.indexOf('eur-inr-shell-') === 0 && n !== SHELL; })
+      .filter(function (n) { return (n.indexOf('eur-inr-shell-') === 0 || n.indexOf('ein-shell-') === 0) && n !== SHELL; })
       .map(function (n) { return caches.delete(n); }));
     await self.clients.claim();
   })());

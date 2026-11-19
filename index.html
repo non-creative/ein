@@ -6,22 +6,24 @@
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" content="#EDEAE1" />
 <script>
-  // Apply the saved theme before first paint so the page doesn't flash.
+  // Apply saved theme + accent before first paint so the page doesn't flash.
   try {
     var __s = JSON.parse(localStorage.getItem('fx-state-eur-inr') || '{}');
     var __t = __s.theme || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', __t);
+    document.documentElement.setAttribute('data-accent', __s.accent || 'copper');
     document.querySelector('meta[name="theme-color"]').setAttribute('content', __t === 'dark' ? '#181C16' : '#EDEAE1');
   } catch (e) {}
 </script>
-<title>EUR → INR Tracker</title>
+<title>ein</title>
+<meta name="description" content="Exchange rates, a plain read on when to convert, and a forecast you can trust." />
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="EUR-INR" />
+<meta name="apple-mobile-web-app-title" content="ein" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -36,6 +38,7 @@
     --good:#2F5C42;
     --wait:#5B6B78;
     --bad:#9C4A4A;
+    --scrim:rgba(35,40,30,.28);
     --serif:'Fraunces', 'Iowan Old Style', Georgia, serif;
     --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
@@ -51,7 +54,20 @@
     --good:#6FBE94;
     --wait:#8A9AA8;
     --bad:#D98A8A;
+    --scrim:rgba(0,0,0,.45);
   }
+  /* accents: light / dark shades, all >= 4.5:1 as text on the page background */
+  :root[data-accent="forest"]{ --accent:#2E6A4E; }
+  :root[data-accent="indigo"]{ --accent:#33528A; }
+  :root[data-accent="plum"]{ --accent:#7A3E6B; }
+  :root[data-accent="rust"]{ --accent:#9E412C; }
+  :root[data-accent="graphite"]{ --accent:#4A5158; }
+  :root[data-theme="dark"][data-accent="forest"]{ --accent:#7FC6A2; }
+  :root[data-theme="dark"][data-accent="indigo"]{ --accent:#93B4E6; }
+  :root[data-theme="dark"][data-accent="plum"]{ --accent:#D8A0CB; }
+  :root[data-theme="dark"][data-accent="rust"]{ --accent:#EC9C88; }
+  :root[data-theme="dark"][data-accent="graphite"]{ --accent:#B9C2CB; }
+
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
   body{
@@ -64,49 +80,57 @@
     -webkit-text-size-adjust:100%;
     transition:background-color .2s ease, color .2s ease;
   }
+  body.drawer-open{ overflow:hidden; }
   .container{
     max-width:560px; margin:0 auto;
-    padding:max(28px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(56px, calc(env(safe-area-inset-bottom) + 32px)) max(20px, env(safe-area-inset-left));
+    padding:max(32px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(64px, calc(env(safe-area-inset-bottom) + 40px)) max(22px, env(safe-area-inset-left));
   }
   a{ color:var(--accent); }
-  button{ font-family:inherit; }
+  button, select, input{ font-family:inherit; }
   :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .num{ font-variant-numeric:tabular-nums; }
 
   /* header */
   .topbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .brand{ font-family:var(--serif); font-size:20px; font-weight:600; }
-  .status{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); }
-  .dot{ width:7px; height:7px; border-radius:50%; background:var(--wait); flex-shrink:0; }
-  .icon-btn{ background:none; border:none; color:var(--ink-soft); cursor:pointer; padding:6px; display:inline-flex; border-radius:6px; }
+  .brand{ display:flex; align-items:center; gap:9px; font-family:var(--serif); font-size:23px; font-weight:600; letter-spacing:-0.01em; }
+  .brand svg{ width:21px; height:21px; color:var(--accent); flex-shrink:0; }
+  .status{ display:flex; align-items:center; gap:4px; font-size:12px; color:var(--ink-soft); }
+  .status #statusText{ margin-right:4px; }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--wait); flex-shrink:0; margin-right:4px; }
+  .icon-btn{ background:none; border:none; color:var(--ink-soft); cursor:pointer; padding:7px; display:inline-flex; border-radius:8px; }
   .icon-btn:hover{ color:var(--accent); }
-  .icon-btn svg{ width:16px; height:16px; }
+  .icon-btn svg{ width:17px; height:17px; }
   .spin svg{ animation:spin .8s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   /* hero */
-  .hero{ margin-top:28px; }
-  .hero-rate{ font-weight:600; font-size:clamp(46px,13vw,72px); letter-spacing:-0.02em; line-height:1.05; display:flex; align-items:baseline; gap:4px; }
-  .rupee{ font-size:0.5em; color:var(--ink-soft); }
-  .hero-meta{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px 16px; margin-top:6px; font-size:13px; color:var(--ink-soft); }
+  #app.switching .hero, #app.switching #verdictText, #app.switching .chart-block, #app.switching .sections{ opacity:.35; transition:opacity .15s; }
+  .hero{ margin-top:48px; }
+  .pair-btn{ display:inline-flex; align-items:center; gap:8px; background:none; border:1px solid var(--line); border-radius:999px; padding:5px 12px; font-size:13px; font-weight:500; color:var(--ink); cursor:pointer; }
+  .pair-btn:hover{ border-color:var(--accent); }
+  .pair-btn svg{ width:14px; height:14px; color:var(--accent); transition:transform .25s ease; }
+  .pair-btn.flip svg{ transform:rotate(180deg); }
+  .hero-rate{ font-weight:600; font-size:clamp(44px,13vw,72px); letter-spacing:-0.02em; line-height:1.05; display:flex; align-items:baseline; gap:6px; margin-top:18px; }
+  .sym{ font-size:0.45em; color:var(--ink-soft); font-weight:500; }
+  .hero-meta{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:10px 16px; margin-top:10px; font-size:13px; color:var(--ink-soft); }
   .converter{ display:flex; align-items:baseline; gap:6px; color:var(--ink); }
-  .converter input{ width:84px; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:2px 2px; border-radius:0; text-align:right; }
+  .converter input{ width:84px; font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:2px; border-radius:0; text-align:right; }
   .converted{ font-weight:600; color:var(--accent); }
 
-  #verdictText{ font-family:var(--serif); font-size:18px; line-height:1.5; margin:22px 0 0; }
+  #verdictText{ font-family:var(--serif); font-size:18px; line-height:1.55; margin:32px 0 0; max-width:34em; }
 
   /* chart */
-  .chart-block{ margin-top:26px; }
-  .chart-head{ display:flex; justify-content:flex-end; gap:2px; margin-bottom:6px; }
-  .seg{ background:none; border:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); padding:4px 8px; border-radius:6px; cursor:pointer; }
-  .seg[aria-pressed="true"]{ background:var(--paper-2); color:var(--ink); }
+  .chart-block{ margin-top:40px; }
+  .chart-head{ display:flex; justify-content:flex-end; gap:2px; margin-bottom:8px; }
+  .seg{ background:none; border:none; font-size:12px; color:var(--ink-soft); padding:4px 9px; border-radius:6px; cursor:pointer; }
+  .seg[aria-pressed="true"], .seg[aria-checked="true"]{ background:var(--paper-2); color:var(--ink); }
   .chart-wrap{ position:relative; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
   #chartContainer svg{ width:100%; height:auto; display:block; overflow:visible; }
   .tip{ position:absolute; top:0; pointer-events:none; background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:11.5px; line-height:1.45; white-space:nowrap; transform:translateX(-50%); }
   .tip b{ font-weight:600; }
   .tip span{ color:var(--ink-soft); }
-  .legend{ display:flex; gap:14px; margin-top:6px; font-size:11px; color:var(--ink-soft); }
-  .legend i{ display:inline-block; width:14px; height:8px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+  .legend{ display:flex; gap:16px; margin-top:10px; font-size:11px; color:var(--ink-soft); }
+  .legend i{ display:inline-block; width:14px; height:8px; border-radius:2px; vertical-align:middle; margin-right:6px; }
   .legend .l-hist{ height:2px; background:var(--accent); }
   .legend .l-band{ background:var(--accent); opacity:.22; }
 
@@ -122,21 +146,20 @@
   .cross-dot{ fill:var(--paper); stroke:var(--accent); stroke-width:2; }
 
   /* collapsible sections */
+  .sections{ margin-top:48px; }
   details{ border-top:1px solid var(--line); }
   details:last-of-type{ border-bottom:1px solid var(--line); }
-  .sections{ margin-top:30px; }
-  summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:15px 0; }
+  summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:18px 0; }
   summary::-webkit-details-marker{ display:none; }
   summary .s-title{ font-family:var(--serif); font-size:16px; font-weight:600; }
   summary .s-peek{ margin-left:auto; font-size:12.5px; color:var(--ink-soft); text-align:right; }
   summary .chev{ width:14px; height:14px; color:var(--ink-soft); transition:transform .2s ease; flex-shrink:0; }
   details[open] summary .chev{ transform:rotate(180deg); }
-  .s-body{ padding:2px 0 22px; }
-  @media (prefers-reduced-motion: reduce){ summary .chev{ transition:none; } .spin svg{ animation:none; } }
+  .s-body{ padding:4px 0 28px; }
 
-  .sub{ font-size:12px; color:var(--ink-soft); margin:0 0 10px; }
-  .block + .block{ margin-top:24px; }
-  .hint{ font-size:11.5px; color:var(--ink-soft); margin:12px 0 0; line-height:1.55; }
+  .sub{ font-size:12px; color:var(--ink-soft); margin:0 0 12px; }
+  .block + .block{ margin-top:28px; }
+  .hint{ font-size:11.5px; color:var(--ink-soft); margin:14px 0 0; line-height:1.6; }
 
   /* range bar */
   .rangebar{ position:relative; height:46px; margin:4px 0 2px; }
@@ -151,7 +174,7 @@
   .rb-ends span:nth-child(2){ color:var(--ink-soft); }
 
   /* meters */
-  .meter{ display:grid; grid-template-columns:minmax(0,1fr) 92px 40px; align-items:center; gap:10px; padding:7px 0; }
+  .meter{ display:grid; grid-template-columns:minmax(0,1fr) 92px 40px; align-items:center; gap:10px; padding:8px 0; }
   .m-label{ font-size:13px; line-height:1.35; }
   .m-label small{ display:block; font-size:11px; color:var(--ink-soft); }
   .m-track{ height:6px; background:var(--paper-2); border-radius:3px; overflow:hidden; }
@@ -160,7 +183,7 @@
   .meter.down .m-fill{ background:var(--ink-soft); }
   .m-val{ font-size:13px; font-weight:600; text-align:right; }
 
-  .split{ display:flex; height:6px; border-radius:3px; overflow:hidden; gap:2px; margin:6px 0 4px; }
+  .split{ display:flex; height:6px; border-radius:3px; overflow:hidden; gap:2px; margin:6px 0 6px; }
   .split .up{ background:var(--accent); }
   .split .dn{ background:var(--ink-soft); opacity:.55; }
   .split-labels{ display:flex; justify-content:space-between; font-size:12px; }
@@ -173,16 +196,17 @@
   .hist-bars{ display:flex; align-items:flex-end; gap:2px; height:56px; }
   .hist-bars div{ flex:1; background:var(--line); border-radius:2px 2px 0 0; min-height:2px; }
   .hist-bars div.now{ background:var(--accent); }
-  .mini{ display:flex; justify-content:space-between; font-size:13px; padding:6px 0; }
+  .mini{ display:flex; justify-content:space-between; font-size:13px; padding:7px 0; }
   .mini span:first-child{ color:var(--ink-soft); }
   .mini span:last-child{ font-weight:600; }
 
   /* alerts */
-  .target-form label{ display:block; font-size:13px; color:var(--ink-soft); margin-bottom:6px; }
+  .target-form label{ display:block; font-size:13px; color:var(--ink-soft); margin-bottom:8px; }
   .target-row{ display:flex; align-items:center; gap:6px; }
-  .target-row input, .sync-form input{ flex:1; min-width:0; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
-  .btn{ font-family:var(--mono); font-size:12px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink); padding:9px 14px; cursor:pointer; border-radius:6px; }
-  .notify-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; }
+  .field{ flex:1; min-width:0; font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
+  .btn{ font-size:12px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink); padding:9px 14px; cursor:pointer; border-radius:8px; }
+  .row-between{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .notify-row{ margin-top:22px; }
   .notify-row p{ margin:0; font-size:13px; }
   .switch{ position:relative; width:40px; height:24px; border-radius:12px; background:var(--line); border:none; cursor:pointer; flex-shrink:0; transition:background .2s; }
   .switch::after{ content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--paper); transition:transform .2s; }
@@ -190,15 +214,53 @@
   .switch[aria-checked="true"]::after{ transform:translateX(16px); }
   .status-line{ font-size:12px; color:var(--ink-soft); margin:8px 0 0; min-height:1em; }
 
-  .error-state{ margin-top:36px; }
+  .error-state{ margin-top:48px; }
   .error-state p{ margin:0 0 12px; }
 
-  footer{ margin-top:36px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
-  .sync{ margin-top:12px; }
-  .link-btn{ background:none; border:none; color:var(--accent); font-family:var(--mono); font-size:11.5px; cursor:pointer; padding:6px 4px; text-decoration:underline; }
-  .sync-form{ display:flex; flex-direction:column; gap:10px; margin-top:8px; max-width:320px; }
+  /* settings drawer */
+  .scrim{ position:fixed; inset:0; background:var(--scrim); opacity:0; transition:opacity .25s ease; z-index:20; }
+  .scrim.show{ opacity:1; }
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0; width:min(380px, 90vw); z-index:21;
+    background:var(--paper); border-left:1px solid var(--line);
+    transform:translateX(100%); transition:transform .28s cubic-bezier(.2,.7,.2,1);
+    display:flex; flex-direction:column;
+    padding:max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) 24px;
+    overflow-y:auto; overscroll-behavior:contain;
+  }
+  .drawer.open{ transform:none; }
+  .d-head{ display:flex; align-items:center; justify-content:space-between; }
+  .d-head h2{ font-family:var(--serif); font-size:20px; font-weight:600; margin:0; }
+  .d-sec{ margin-top:34px; }
+  .d-sec h3{ font-size:12px; font-weight:500; color:var(--ink-soft); margin:0 0 12px; }
+  .pair-pick{ display:flex; flex-direction:column; gap:4px; }
+  .pp-row{ display:grid; grid-template-columns:44px 1fr; align-items:center; font-size:12px; color:var(--ink-soft); }
+  .pp-swap{ align-self:flex-start; margin-left:4px; }
+  .select{
+    width:100%; appearance:none; -webkit-appearance:none; font-size:14px; color:var(--ink);
+    background:var(--paper-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666B5C' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 14px;
+    border:1px solid var(--line); border-radius:8px; padding:9px 30px 9px 12px; cursor:pointer;
+  }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .chip{ display:inline-flex; align-items:center; gap:2px; border:1px solid var(--line); border-radius:999px; padding:3px 4px 3px 11px; font-size:12.5px; }
+  .chip.active{ border-color:var(--accent); }
+  .chip button{ background:none; border:none; color:var(--ink-soft); cursor:pointer; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+  .chip button:hover:not(:disabled){ color:var(--bad); }
+  .chip button:disabled{ opacity:.35; cursor:default; }
+  .chip button svg{ width:12px; height:12px; }
+  .segs{ display:inline-flex; gap:2px; background:transparent; }
+  .swatches{ display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+  .swatch{ width:28px; height:28px; border-radius:50%; border:none; cursor:pointer; padding:0; position:relative; background:var(--sw); }
+  .swatch[aria-checked="true"]::after{ content:''; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--sw); }
+  .about p{ font-size:12px; color:var(--ink-soft); line-height:1.65; margin:0 0 10px; }
+  .sync-form{ display:flex; flex-direction:column; gap:10px; margin-top:4px; }
   .sync-form .btn{ align-self:flex-start; }
+  .link-btn{ background:none; border:none; color:var(--accent); font-size:12px; cursor:pointer; padding:6px 0; text-decoration:underline; }
 
+  @media (prefers-reduced-motion: reduce){
+    summary .chev, .drawer, .scrim, .pair-btn svg{ transition:none; }
+    .spin svg{ animation:none; }
+  }
   [hidden]{ display:none !important; }
 </style>
 </head>
@@ -206,27 +268,35 @@
 <div class="container">
 
   <header class="topbar">
-    <div class="brand">EUR → INR</div>
+    <div class="brand">
+      <svg viewBox="104 104 304 304" aria-hidden="true"><circle cx="296" cy="216" r="92" fill="none" stroke="currentColor" stroke-width="26"/><circle cx="216" cy="296" r="92" fill="currentColor" stroke="var(--paper)" stroke-width="30" paint-order="stroke"/></svg>
+      ein
+    </div>
     <div class="status">
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Loading…</span>
       <button class="icon-btn" id="refreshBtn" type="button" aria-label="Refresh rates">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
       </button>
-      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to dark mode">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings" aria-controls="drawer" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
       </button>
     </div>
   </header>
 
   <div id="app" hidden>
     <section class="hero">
-      <div class="hero-rate num"><span class="rupee">₹</span><span id="heroValue">--.--</span></div>
+      <button class="pair-btn" id="swapBtn" type="button" aria-label="Swap currencies">
+        <span id="pairBase">EUR</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h14l-4-4M20 15H6l4 4"/></svg>
+        <span id="pairQuote">INR</span>
+      </button>
+      <div class="hero-rate num"><span class="sym" id="heroSym">₹</span><span id="heroValue">--.--</span></div>
       <div class="hero-meta">
-        <span>1 EUR · <span id="heroDate">—</span></span>
+        <span>1 <span id="heroBase">EUR</span> · <span id="heroDate">—</span></span>
         <label class="converter">
-          <input type="number" id="amountInput" value="1000" min="0" step="1" inputmode="decimal" aria-label="Amount in EUR" class="num" />
-          <span>EUR ≈</span>
+          <input type="number" id="amountInput" value="1000" min="0" step="any" inputmode="decimal" aria-label="Amount" class="num" />
+          <span id="convBase">EUR</span><span>≈</span>
           <span class="converted num" id="convertedOutput">—</span>
         </label>
       </div>
@@ -259,7 +329,7 @@
           <div id="fcBody">
             <div class="block">
               <p class="sub" id="fcRangeTitle">Likely rate in 4 weeks</p>
-              <div class="rangebar" id="fcRangeBar">
+              <div class="rangebar">
                 <div class="rb-track"></div>
                 <div class="rb-outer" id="rbOuter"></div>
                 <div class="rb-inner" id="rbInner"></div>
@@ -281,7 +351,7 @@
               <div class="split-labels num"><span id="splitUpLabel">—</span><span id="splitDnLabel">—</span></div>
             </div>
 
-            <p class="hint">Replays the last year of daily moves, scaled to how volatile the market is right now. Tested on 10 years of real EUR/INR rates: its range held 80% of the time. Direction can't be predicted from past rates, so up vs. down stays near even.</p>
+            <p class="hint">Replays the last year of daily moves, scaled to how volatile the market is right now. Direction can't be predicted from past rates, so up vs. down stays near even. More in Settings.</p>
             <p class="hint" id="fcBacktest"></p>
           </div>
         </div>
@@ -309,7 +379,7 @@
           </div>
 
           <div class="block">
-            <p class="sub" id="histTitle">How often each rate occurred, last 6 months</p>
+            <p class="sub">How often each rate occurred, last 6 months</p>
             <div class="hist-bars" id="histBars" role="img"></div>
             <div class="pos-labels num"><span id="histLo">—</span><span id="histHi">—</span></div>
           </div>
@@ -325,26 +395,26 @@
       <details id="secAlerts" data-key="alerts">
         <summary>
           <span class="s-title">Alerts</span>
-          <span class="s-peek" id="peekAlerts">Off</span>
+          <span class="s-peek num" id="peekAlerts">Off</span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
         <div class="s-body">
           <form class="target-form" id="targetForm">
-            <label for="targetInput">Notify me when 1 EUR reaches</label>
+            <label for="targetInput" id="targetLabel">Notify me when 1 EUR reaches</label>
             <div class="target-row">
-              <span>₹</span>
-              <input type="number" id="targetInput" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 110.00" class="num" />
+              <span id="targetSym">₹</span>
+              <input type="number" id="targetInput" step="any" min="0" inputmode="decimal" placeholder="target rate" class="field num" />
               <button class="btn" type="submit">Set</button>
             </div>
           </form>
           <p class="status-line" id="targetStatus"></p>
 
-          <div class="notify-row">
+          <div class="row-between notify-row">
             <p>Notifications</p>
             <button class="switch" id="enableNotifyBtn" type="button" role="switch" aria-checked="false" aria-label="Notifications"></button>
           </div>
           <p class="status-line" id="notifyStatus"></p>
-          <p class="hint">Alerts for a new 90-day high, or when the rate reaches your target. Checked whenever the app opens, and in the background where your browser allows it (installed app on Chrome or Edge).</p>
+          <p class="hint">Alerts for a new 90-day high, or when the rate reaches your target, for the pair on screen. Checked whenever ein opens, and in the background where your browser allows it (installed app on Chrome or Edge).</p>
         </div>
       </details>
     </div>
@@ -354,22 +424,62 @@
     <p id="errorText">Couldn't load exchange rates.</p>
     <button class="btn" id="retryBtn" type="button">Try again</button>
   </div>
-
-  <footer>
-    Reference rates from the <a href="https://ecb.europa.eu" target="_blank" rel="noopener">European Central Bank</a>, via the <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter API</a>. Updated once per business day. Personal reference only — not financial advice.
-    <div class="sync" id="syncBlock" hidden>
-      <span id="syncStatus"></span>
-      <button class="link-btn" id="syncToggle" type="button">Sign in</button>
-      <form class="sync-form" id="syncForm" hidden>
-        <input type="email" id="syncEmail" placeholder="email" autocomplete="username" required />
-        <input type="password" id="syncPass" placeholder="password" autocomplete="current-password" required />
-        <button class="btn" type="submit">Sign in</button>
-      </form>
-      <p class="status-line" id="syncMsg"></p>
-    </div>
-  </footer>
-
 </div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+  <div class="d-head">
+    <h2 id="drawerTitle">Settings</h2>
+    <button class="icon-btn" id="closeDrawer" type="button" aria-label="Close settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+
+  <section class="d-sec">
+    <h3>Compare</h3>
+    <div class="pair-pick">
+      <label class="pp-row"><span>From</span><select class="select" id="selBase"></select></label>
+      <button class="icon-btn pp-swap" id="swapBtn2" type="button" aria-label="Swap currencies">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v16l-4-4M16 20V4l4 4"/></svg>
+      </button>
+      <label class="pp-row"><span>To</span><select class="select" id="selQuote"></select></label>
+    </div>
+  </section>
+
+  <section class="d-sec">
+    <h3>Your currencies</h3>
+    <div class="chips" id="chips"></div>
+    <select class="select" id="addCurrency" aria-label="Add a currency"></select>
+  </section>
+
+  <section class="d-sec">
+    <h3>Appearance</h3>
+    <div class="segs" role="radiogroup" aria-label="Theme" id="themeSeg">
+      <button class="seg" type="button" role="radio" data-theme-opt="system">System</button>
+      <button class="seg" type="button" role="radio" data-theme-opt="light">Light</button>
+      <button class="seg" type="button" role="radio" data-theme-opt="dark">Dark</button>
+    </div>
+    <div class="swatches" role="radiogroup" aria-label="Accent colour" id="swatches"></div>
+  </section>
+
+  <section class="d-sec" id="syncSec" hidden>
+    <h3>Sync</h3>
+    <div class="row-between"><span id="syncStatus" style="font-size:13px"></span><button class="link-btn" id="syncToggle" type="button">Sign in</button></div>
+    <form class="sync-form" id="syncForm" hidden>
+      <input type="email" class="field" id="syncEmail" placeholder="email" autocomplete="username" required />
+      <input type="password" class="field" id="syncPass" placeholder="password" autocomplete="current-password" required />
+      <button class="btn" type="submit">Sign in</button>
+    </form>
+    <p class="status-line" id="syncMsg"></p>
+  </section>
+
+  <section class="d-sec about">
+    <h3>About the rates</h3>
+    <p>Reference rates from the <a href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html" target="_blank" rel="noopener">European Central Bank</a>, via the <a href="https://frankfurter.dev" target="_blank" rel="noopener">Frankfurter API</a>. Published once per business day, around 16:00 CET. Banks and transfer services add their own margin, so the rate you get will be a little lower.</p>
+    <p>The forecast replays the last year of daily moves, scaled to current volatility. Tested on 10 years of real rates for 12 pairs: its range held about 80% of the time. Less reliable for managed currencies such as CNY.</p>
+    <p>Personal reference only, not financial advice.</p>
+  </section>
+</aside>
 
 <script src="config.js"></script>
 <script src="fx-core.js"></script>
@@ -380,6 +490,14 @@
   var FX = window.FX;
   var CFG = window.FX_CONFIG || {};
   var UI_KEY = 'fx-ui-eur-inr';
+  var ACCENTS = [
+    { id:'copper',   name:'Copper',   light:'#8B5A2B', dark:'#D3A15E' },
+    { id:'forest',   name:'Forest',   light:'#2E6A4E', dark:'#7FC6A2' },
+    { id:'indigo',   name:'Indigo',   light:'#33528A', dark:'#93B4E6' },
+    { id:'plum',     name:'Plum',     light:'#7A3E6B', dark:'#D8A0CB' },
+    { id:'rust',     name:'Rust',     light:'#9E412C', dark:'#EC9C88' },
+    { id:'graphite', name:'Graphite', light:'#4A5158', dark:'#B9C2CB' }
+  ];
 
   var els = {};
   var currentHistory = [];
@@ -390,9 +508,15 @@
   var lastSyncAt = 0;
   var amountTimer = null;
   var chartModel = null;
+  var loadToken = 0;
+  var dp = 2;
   var ui = { range: 90, open: {} };
+  var lastFocus = null;
 
   function $(id){ return document.getElementById(id); }
+  function base(){ return currentState.base; }
+  function quote(){ return currentState.quote; }
+  function pk(){ return FX.dirKey(base(), quote()); }
 
   function loadUI(){ try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch(e){} }
   function saveUI(){ try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch(e){} }
@@ -401,10 +525,10 @@
     var d = new Date(iso + 'T00:00:00Z');
     return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', timeZone:'UTC' });
   }
-  function fmtStat(v){ return '₹' + v.toFixed(2); }
-  function fmtChange(change, pct){
+  function R(v){ return FX.fmtMoney(v, quote(), dp); }
+  function fmtChange(change, pctv){
     var sign = change >= 0 ? '+' : '−';
-    return sign + '₹' + Math.abs(change).toFixed(2) + ' (' + sign + Math.abs(pct).toFixed(1) + '%)';
+    return sign + FX.fmtMoney(Math.abs(change), quote(), dp) + ' (' + sign + Math.abs(pctv).toFixed(1) + '%)';
   }
   function pct(p){
     if (p < 0.01) return '<1%';
@@ -412,6 +536,10 @@
     return Math.round(p*100) + '%';
   }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+  function currencyName(code){
+    var list = FX.currencyList();
+    return list[code] || code;
+  }
 
   // ---------- stats (calendar-day windows) ----------
   function avg(arr){ return arr.reduce(function(s,e){ return s+e.rate; }, 0) / arr.length; }
@@ -457,7 +585,7 @@
   }
 
   // ---------- chart ----------
-  var CH = { W:720, H:230, padL:46, padR:12, padT:16, padB:26 };
+  var CH = { W:720, H:230, padL:52, padR:12, padT:16, padB:26 };
 
   function buildChart(history, fc, rangeDays){
     var recent = FX.windowDays(history, rangeDays);
@@ -466,7 +594,7 @@
     var values = recent.map(function(e){ return e.rate; });
     bands.forEach(function(b){ values.push(b.p10, b.p90); });
     var minV = Math.min.apply(null, values), maxV = Math.max.apply(null, values);
-    var pad = (maxV-minV)*0.1 || 1;
+    var pad = (maxV-minV)*0.1 || maxV*0.01 || 1;
     var yMin = minV-pad, yMax = maxV+pad;
     var total = recent.length + bands.length;
     var plotW = CH.W-CH.padL-CH.padR, plotH = CH.H-CH.padT-CH.padB;
@@ -481,11 +609,11 @@
     var lastIdx = recent.length-1, lastRate = recent[lastIdx].rate;
     var fcSvg = '';
     if (bands.length){
-      function band(lo, hi, cls){
+      var band = function(lo, hi, cls){
         var up = [pt(lastIdx, lastRate)], dn = [];
         bands.forEach(function(b,i){ up.push(pt(lastIdx+1+i, b[hi])); dn.unshift(pt(lastIdx+1+i, b[lo])); });
         return '<polygon points="' + up.concat(dn).join(' ') + '" class="' + cls + '" />';
-      }
+      };
       var mid = 'M' + pt(lastIdx, lastRate) + ' ';
       bands.forEach(function(b,i){ mid += 'L' + pt(lastIdx+1+i, b.p50) + ' '; });
       fcSvg = '<line x1="' + xAt(lastIdx).toFixed(1) + '" y1="' + CH.padT + '" x2="' + xAt(lastIdx).toFixed(1) + '" y2="' + (CH.H-CH.padB) + '" class="today-line" />' +
@@ -499,11 +627,11 @@
 
     chartModel = { recent: recent, bands: bands, total: total, xAt: xAt, yAt: yAt, lastIdx: lastIdx };
 
-    return '<svg viewBox="0 0 ' + CH.W + ' ' + CH.H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EUR to INR rate' + (bands.length ? ', with the likely range for the next 4 weeks' : '') + '">' +
+    return '<svg viewBox="0 0 ' + CH.W + ' ' + CH.H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + esc(base() + ' to ' + quote()) + ' rate' + (bands.length ? ', with the likely range for the next 4 weeks' : '') + '">' +
       '<line x1="' + CH.padL + '" y1="' + yAt(rMax).toFixed(1) + '" x2="' + (CH.W-CH.padR) + '" y2="' + yAt(rMax).toFixed(1) + '" class="grid-line" />' +
       '<line x1="' + CH.padL + '" y1="' + yAt(rMin).toFixed(1) + '" x2="' + (CH.W-CH.padR) + '" y2="' + yAt(rMin).toFixed(1) + '" class="grid-line" />' +
-      '<text x="0" y="' + (yAt(rMax)+3.5).toFixed(1) + '" class="axis-label">' + rMax.toFixed(2) + '</text>' +
-      '<text x="0" y="' + (yAt(rMin)+3.5).toFixed(1) + '" class="axis-label">' + rMin.toFixed(2) + '</text>' +
+      '<text x="0" y="' + (yAt(rMax)+3.5).toFixed(1) + '" class="axis-label">' + rMax.toFixed(dp) + '</text>' +
+      '<text x="0" y="' + (yAt(rMin)+3.5).toFixed(1) + '" class="axis-label">' + rMin.toFixed(dp) + '</text>' +
       '<text x="' + CH.padL + '" y="' + (CH.H-6) + '" class="axis-label">' + fmtDateShort(recent[0].date) + '</text>' +
       (bands.length ? '<text x="' + xAt(lastIdx).toFixed(1) + '" y="' + (CH.H-6) + '" class="axis-label" text-anchor="middle">Today</text>' : '') +
       '<text x="' + (CH.W-CH.padR) + '" y="' + (CH.H-6) + '" class="axis-label" text-anchor="end">' + fmtDateShort(dateLast) + '</text>' +
@@ -518,7 +646,7 @@
     if (!currentHistory.length) return;
     els.chartContainer.innerHTML = buildChart(currentHistory, lastForecast, ui.range);
     els.legendBand.hidden = !lastForecast;
-    Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(b){
+    Array.prototype.forEach.call(document.querySelectorAll('.chart-head .seg'), function(b){
       b.setAttribute('aria-pressed', String(Number(b.dataset.range) === ui.range));
     });
     els.chartTip.hidden = true;
@@ -536,11 +664,11 @@
     if (i <= m.lastIdx){
       var e = m.recent[i];
       y = m.yAt(e.rate);
-      html = '<b>' + fmtStat(e.rate) + '</b> <span>' + fmtDateShort(e.date) + '</span>';
+      html = '<b>' + esc(R(e.rate)) + '</b> <span>' + fmtDateShort(e.date) + '</span>';
     } else {
       var b = m.bands[i - m.lastIdx - 1];
       y = m.yAt(b.p50);
-      html = '<b>' + fmtStat(b.p10) + ' – ' + fmtStat(b.p90) + '</b><br><span>likely by ' + fmtDateShort(b.date) + '</span>';
+      html = '<b>' + esc(R(b.p10)) + ' – ' + esc(R(b.p90)) + '</b><br><span>likely by ' + fmtDateShort(b.date) + '</span>';
     }
     var cx = m.xAt(i);
     var layer = $('crossLayer'); layer.setAttribute('visibility', 'visible');
@@ -573,9 +701,8 @@
     els.fcBody.hidden = !fc;
     if (!fc){ els.peekForecast.textContent = '—'; return; }
     var end = fc.bands[fc.bands.length-1];
-    els.peekForecast.textContent = fmtStat(end.p10) + ' – ' + fmtStat(end.p90);
+    els.peekForecast.textContent = R(end.p10) + ' – ' + R(end.p90);
 
-    // Range bar
     els.fcRangeTitle.textContent = 'Likely rate by ' + fmtDateShort(end.date);
     var lo = Math.min(end.p10, fc.start), hi = Math.max(end.p90, fc.start);
     var padR = (hi-lo)*0.06; lo -= padR; hi += padR;
@@ -585,19 +712,18 @@
     els.rbMid.style.left = at(end.p50);
     els.rbNow.style.left = at(fc.start);
     placeLabel(els.rbNowLabel, placePct(lo, hi, fc.start));
-    els.rbNowLabel.textContent = 'today ' + fc.start.toFixed(2);
-    els.rbLo.textContent = fmtStat(end.p10);
-    els.rbMidVal.textContent = 'mid ' + fmtStat(end.p50);
-    els.rbHi.textContent = fmtStat(end.p90);
+    els.rbNowLabel.textContent = 'today ' + fc.start.toFixed(dp);
+    els.rbLo.textContent = R(end.p10);
+    els.rbMidVal.textContent = 'mid ' + R(end.p50);
+    els.rbHi.textContent = R(end.p90);
 
-    // Meters
     var rows = [];
     function row(key, label, cls){
       var l = fc.levels[key]; if (!l) return;
       var when = l.p >= 0.01 && l.typicalDate ? 'typically by ' + fmtDateShort(l.typicalDate) : 'unlikely';
       rows.push({ rate: l.rate, html:
         '<div class="meter' + (cls ? ' ' + cls : '') + '">' +
-          '<div class="m-label"><span class="num">' + fmtStat(l.rate) + '</span> ' + esc(label) + '<small>' + when + '</small></div>' +
+          '<div class="m-label"><span class="num">' + esc(R(l.rate)) + '</span> ' + esc(label) + '<small>' + when + '</small></div>' +
           '<div class="m-track" role="presentation"><div class="m-fill" style="width:' + Math.max(1, Math.round(l.p*100)) + '%"></div></div>' +
           '<div class="m-val num">' + pct(l.p) + '</div>' +
         '</div>' });
@@ -607,23 +733,22 @@
     rows.sort(function(a,b){ return b.rate - a.rate; });
     els.fcMeters.innerHTML = rows.map(function(r){ return r.html; }).join('');
 
-    // Up / down split
     var pUp = fc.pHigher[fc.pHigher.length-1];
     var upW = Math.round(pUp*100);
     els.splitUp.style.flex = String(Math.max(1, upW)); els.splitDn.style.flex = String(Math.max(1, 100-upW));
     els.splitUpLabel.textContent = 'Higher ' + upW + '%';
     els.splitDnLabel.textContent = 'Lower ' + (100-upW) + '%';
 
-    // Self-check on this device's data, after paint.
-    var key = currentHistory.length + ':' + currentHistory[currentHistory.length-1].date;
+    var key = pk() + ':' + currentHistory.length + ':' + currentHistory[currentHistory.length-1].date;
     if (backtestCache.key === key){ showBacktest(backtestCache.result); return; }
     els.fcBacktest.textContent = '';
     if (backtestCache.running === key) return;
     backtestCache.running = key;
+    var hist = currentHistory;
     setTimeout(function(){
-      FX.backtestForecast(currentHistory).then(function(bt){
+      FX.backtestForecast(hist).then(function(bt){
         backtestCache = { key: key, result: bt, running: null };
-        if (key === currentHistory.length + ':' + currentHistory[currentHistory.length-1].date) showBacktest(bt);
+        if (key === pk() + ':' + currentHistory.length + ':' + currentHistory[currentHistory.length-1].date) showBacktest(bt);
       });
     }, 300);
   }
@@ -642,11 +767,10 @@
     els.posFill.style.width = pos + '%';
     els.posNow.style.left = pos + '%';
     placeLabel(els.posNowLabel, pos);
-    els.posNowLabel.textContent = 'today ' + now.toFixed(2);
-    els.posLo.textContent = fmtStat(lo); els.posLoDate.textContent = 'low · ' + fmtDateShort(stats.low90.date);
-    els.posHi.textContent = fmtStat(hi); els.posHiDate.textContent = 'high · ' + fmtDateShort(stats.high90.date);
+    els.posNowLabel.textContent = 'today ' + now.toFixed(dp);
+    els.posLo.textContent = R(lo); els.posLoDate.textContent = 'low · ' + fmtDateShort(stats.low90.date);
+    els.posHi.textContent = R(hi); els.posHiDate.textContent = 'high · ' + fmtDateShort(stats.high90.date);
 
-    // Distribution of daily rates over 6 months, today's bin highlighted
     var rates = stats.win180.map(function(e){ return e.rate; });
     var rMin = Math.min.apply(null, rates), rMax = Math.max.apply(null, rates);
     var BINS = 24, counts = new Array(BINS).fill(0), span = (rMax - rMin) || 1;
@@ -657,34 +781,55 @@
       return '<div' + (i === nowBin ? ' class="now"' : '') + ' style="height:' + Math.max(4, Math.round(c/top*100)) + '%" title="' + c + ' days"></div>';
     }).join('');
     els.histBars.setAttribute('aria-label', 'Today is higher than ' + stats.percentile + '% of days in the last 6 months');
-    els.histLo.textContent = fmtStat(rMin); els.histHi.textContent = fmtStat(rMax);
+    els.histLo.textContent = R(rMin); els.histHi.textContent = R(rMax);
 
-    els.statAvg7.textContent = fmtStat(stats.avg7);
-    els.statAvg30.textContent = fmtStat(stats.avg30);
+    els.statAvg7.textContent = R(stats.avg7);
+    els.statAvg30.textContent = R(stats.avg30);
     els.statChange30.textContent = fmtChange(stats.change30, stats.change30Pct);
   }
 
-  // ---------- settings ----------
-  function systemTheme(){
-    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-  }
-  function setTheme(theme){
-    document.documentElement.setAttribute('data-theme', theme);
-    els.themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  // ---------- appearance ----------
+  var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function resolvedTheme(){ return currentState.theme || (mql && mql.matches ? 'dark' : 'light'); }
+  function applyAppearance(){
+    var t = resolvedTheme();
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.setAttribute('data-accent', currentState.accent || 'copper');
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', theme === 'dark' ? '#181C16' : '#EDEAE1');
+    if (m) m.setAttribute('content', t === 'dark' ? '#181C16' : '#EDEAE1');
+    Array.prototype.forEach.call(els.themeSeg.querySelectorAll('[data-theme-opt]'), function(b){
+      b.setAttribute('aria-checked', String((currentState.theme || 'system') === b.dataset.themeOpt));
+    });
+    els.swatches.innerHTML = ACCENTS.map(function(a){
+      return '<button class="swatch" type="button" role="radio" data-accent="' + a.id + '" aria-label="' + a.name + '" title="' + a.name + '" aria-checked="' + String((currentState.accent || 'copper') === a.id) + '" style="--sw:' + (t === 'dark' ? a.dark : a.light) + '"></button>';
+    }).join('');
   }
+  if (mql && mql.addEventListener) mql.addEventListener('change', function(){ if (currentState && !currentState.theme) applyAppearance(); });
 
+  // ---------- settings state ----------
   async function saveSettings(patch){
-    var touch = ['targetRate','theme','amount'].some(function(k){ return k in patch; });
+    var touch = FX.SYNCED.some(function(k){ return k in patch; });
     currentState = await FX.updateState(function(s){ Object.assign(s, patch); }, touch);
     if (touch) sbPushSoon();
   }
 
+  function applyPairLabels(){
+    var b = base(), q = quote(), sym = FX.currencySymbol(q);
+    els.pairBase.textContent = b; els.pairQuote.textContent = q;
+    els.heroBase.textContent = b; els.convBase.textContent = b;
+    els.heroSym.textContent = sym; els.targetSym.textContent = sym;
+    els.targetLabel.textContent = 'Notify me when 1 ' + b + ' reaches';
+    var t = currentState.targets[pk()];
+    els.targetInput.value = t != null ? t : '';
+    els.targetStatus.textContent = '';
+    document.title = 'ein · ' + b + ' → ' + q;
+  }
+
   function applyState(){
-    setTheme(currentState.theme || systemTheme());
-    els.targetInput.value = currentState.targetRate != null ? currentState.targetRate : '';
+    applyAppearance();
+    applyPairLabels();
     els.amountInput.value = currentState.amount > 0 ? currentState.amount : 1000;
+    renderSettingsLists();
     updateNotifyUI();
     updateConverterOutput();
   }
@@ -697,11 +842,12 @@
     var on = notifyActive();
     els.enableNotifyBtn.setAttribute('aria-checked', String(on));
     var msg = '';
-    if (!notifySupported()) msg = 'Not available in this browser. On iPhone, add the app to your Home Screen and open it from there.';
+    if (!notifySupported()) msg = 'Not available in this browser. On iPhone, add ein to your Home Screen and open it from there.';
     else if (!on && Notification.permission === 'denied') msg = 'Blocked in your browser settings. Allow notifications for this site to use alerts.';
     els.notifyStatus.textContent = msg;
-    var t = currentState.targetRate;
-    els.peekAlerts.textContent = on ? ('On' + (t != null ? ' · ' + fmtStat(t) : '')) : (t != null ? 'Off · ' + fmtStat(t) : 'Off');
+    var t = currentState.targets[pk()];
+    var tt = t != null ? ' · ' + FX.fmtMoney(t, quote(), FX.rateDp(t)) : '';
+    els.peekAlerts.textContent = (on ? 'On' : 'Off') + tt;
   }
 
   async function registerPeriodicSync(){
@@ -731,14 +877,17 @@
     if (!notifySupported()){ updateNotifyUI(); return; }
     var perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
     if (perm !== 'granted'){ updateNotifyUI(); return; }
+    var k = pk(), t = currentState.targets[k];
     // Whatever is true right now counts as already seen, so turning alerts on doesn't fire instantly.
-    await saveSettings(Object.assign({ notifyEnabled: true }, FX.acknowledge(currentHistory, currentState)));
+    currentState = await FX.updateState(function(s){
+      s.notifyEnabled = true;
+      s.alerts[k] = Object.assign({}, s.alerts[k], FX.acknowledge(currentHistory, t));
+    }, false);
     updateNotifyUI();
-    var t = currentState.targetRate;
     FX.showNotes([{
       tag: 'fx-welcome',
       title: 'Alerts are on',
-      body: "You'll hear about new 90-day highs" + (t != null ? ' and when 1 EUR reaches ' + fmtStat(t) : '') + '.'
+      body: "You'll hear about new 90-day highs for " + base() + ' → ' + quote() + (t != null ? ' and when 1 ' + base() + ' reaches ' + FX.fmtMoney(t, quote(), FX.rateDp(t)) : '') + '.'
     }]);
     registerPeriodicSync();
   }
@@ -747,14 +896,14 @@
   function animateHero(target){
     var el = els.heroValue;
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || heroAnimated){ el.textContent = target.toFixed(2); heroAnimated = true; return; }
+    if (reduce || heroAnimated){ el.textContent = target.toFixed(dp); heroAnimated = true; return; }
     heroAnimated = true;
     var start = performance.now(), duration = 700;
     function step(now){
       var t = Math.min(1, (now-start)/duration);
       var eased = 1 - Math.pow(1-t, 3);
-      el.textContent = (target*eased).toFixed(2);
-      if (t < 1) requestAnimationFrame(step); else el.textContent = target.toFixed(2);
+      el.textContent = (target*eased).toFixed(dp);
+      if (t < 1) requestAnimationFrame(step); else el.textContent = target.toFixed(dp);
     }
     requestAnimationFrame(step);
   }
@@ -762,17 +911,20 @@
   function updateConverterOutput(){
     var amt = parseFloat(els.amountInput.value);
     if (!lastStats || isNaN(amt)){ els.convertedOutput.textContent = '—'; return; }
-    els.convertedOutput.textContent = '₹' + (amt * lastStats.current.rate).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    var v = amt * lastStats.current.rate;
+    els.convertedOutput.textContent = FX.fmtMoney(v, quote(), v >= 100 ? 0 : 2);
   }
 
   function renderAll(){
     if (!currentHistory.length) return;
     var stats = computeStats(currentHistory);
     lastStats = stats;
-    lastForecast = FX.forecast(currentHistory, { target: currentState && currentState.targetRate });
+    dp = FX.rateDp(stats.current.rate);
+    lastForecast = FX.forecast(currentHistory, { target: currentState.targets[pk()] });
 
     els.app.hidden = false;
     els.errorState.hidden = true;
+    els.app.classList.remove('switching');
 
     animateHero(stats.current.rate);
     els.heroDate.textContent = fmtDateShort(stats.current.date);
@@ -796,24 +948,98 @@
   }
 
   async function refresh(isInitial){
+    var token = loadToken, b = base(), q = quote();
     if (isInitial) setStatus('loading');
     try {
-      var fresh = await FX.syncHistory();
+      var fresh = await FX.syncHistory(b, q);
+      if (token !== loadToken) return;          // pair changed meanwhile
       currentHistory = fresh;
       lastSyncAt = Date.now();
       setStatus('live', fresh[fresh.length-1].date);
       renderAll();
     } catch(err){
+      if (token !== loadToken) return;
       if (currentHistory.length){
         setStatus('cached-error', currentHistory[currentHistory.length-1].date);
+        els.app.classList.remove('switching');
       } else {
         setStatus('error');
+        els.errorText.textContent = "Couldn't load " + b + ' → ' + q + ' rates. Check your connection.';
         els.app.hidden = true;
         els.errorState.hidden = false;
       }
       return;
     }
-    try { await FX.checkAlerts(currentHistory); } catch(e) {}
+    try { await FX.checkAlerts(currentHistory, b, q); } catch(e) {}
+  }
+
+  // Show the pair on screen: cached history instantly (if any), then refresh.
+  async function loadPair(){
+    var token = ++loadToken;
+    applyPairLabels();
+    heroAnimated = false;
+    var cached = await FX.loadHistory(base(), quote());
+    if (token !== loadToken) return;
+    if (cached && cached.length){
+      currentHistory = cached;
+      setStatus('cached', cached[cached.length-1].date);
+      renderAll();
+    } else {
+      currentHistory = [];
+      if (!els.app.hidden) els.app.classList.add('switching');
+    }
+    await refresh(true);
+  }
+
+  async function setPair(b, q){
+    if (!b || !q) return;
+    if (b === q){ q = b === currentState.base ? currentState.quote : currentState.base; if (b === q) return; }
+    await saveSettings({ base: b, quote: q });
+    renderSettingsLists();
+    await loadPair();
+  }
+  function swapPair(){
+    els.swapBtn.classList.toggle('flip');
+    setPair(quote(), base());
+  }
+
+  // ---------- settings drawer ----------
+  function renderSettingsLists(){
+    var tracked = currentState.currencies.slice().sort();
+    function opts(sel){ return tracked.map(function(c){ return '<option value="' + c + '"' + (c === sel ? ' selected' : '') + '>' + c + ' · ' + esc(currencyName(c)) + '</option>'; }).join(''); }
+    els.selBase.innerHTML = opts(base());
+    els.selQuote.innerHTML = opts(quote());
+    els.chips.innerHTML = tracked.map(function(c){
+      var inPair = c === base() || c === quote();
+      return '<span class="chip' + (inPair ? ' active' : '') + '" title="' + esc(currencyName(c)) + '">' + c +
+        '<button type="button" data-remove="' + c + '" aria-label="Remove ' + c + '"' + (inPair || tracked.length <= 2 ? ' disabled' : '') + '>' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>';
+    }).join('');
+    var all = FX.currencyList();
+    var rest = Object.keys(all).filter(function(c){ return tracked.indexOf(c) < 0; }).sort();
+    els.addCurrency.innerHTML = '<option value="">Add a currency…</option>' + rest.map(function(c){ return '<option value="' + c + '">' + c + ' · ' + esc(all[c]) + '</option>'; }).join('');
+    els.addCurrency.disabled = !rest.length;
+  }
+
+  function openDrawer(){
+    lastFocus = document.activeElement;
+    renderSettingsLists();
+    els.scrim.hidden = false;
+    els.drawer.removeAttribute('inert');
+    els.drawer.setAttribute('aria-hidden', 'false');
+    els.settingsBtn.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('drawer-open');
+    requestAnimationFrame(function(){ els.scrim.classList.add('show'); els.drawer.classList.add('open'); });
+    setTimeout(function(){ els.closeDrawer.focus(); }, 50);
+    FX.fetchCurrencies().then(function(){ if (els.drawer.classList.contains('open')) renderSettingsLists(); });
+  }
+  function closeDrawer(){
+    els.scrim.classList.remove('show'); els.drawer.classList.remove('open');
+    els.drawer.setAttribute('inert', ''); els.drawer.setAttribute('aria-hidden', 'true');
+    els.settingsBtn.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('drawer-open');
+    setTimeout(function(){ els.scrim.hidden = true; }, 280);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
   // ---------- Supabase settings sync (optional; email + password, per-user rows) ----------
@@ -862,7 +1088,6 @@
       sbSaveSession(s);
       return s.access_token;
     } catch(e){
-      // Only sign out if Supabase rejected the session; being offline keeps it.
       if (e.authFailed){ sbSaveSession(null); renderSync(); }
       return null;
     }
@@ -885,15 +1110,12 @@
   }
 
   async function sbPush(){
-    var s = currentState;
+    var s = currentState, value = { updatedAt: s.updatedAt };
+    FX.SYNCED.forEach(function(k){ value[k] = s[k]; });
     await sbRequest(SB_TABLE + '?on_conflict=user_id', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({
-        user_id: sbSession.user_id,
-        value: { targetRate: s.targetRate, theme: s.theme, amount: s.amount, updatedAt: s.updatedAt },
-        updated_at: new Date().toISOString()
-      })
+      body: JSON.stringify({ user_id: sbSession.user_id, value: value, updated_at: new Date().toISOString() })
     });
   }
 
@@ -905,22 +1127,27 @@
     }, 800);
   }
 
-  // Last write wins on the three synced fields.
+  // Last write wins on the synced fields.
   async function syncNow(){
     if (!sbOn() || !sbSession) return;
     try {
       var remote = await sbPull();
       var localAt = currentState.updatedAt || 0;
       if (remote && (remote.updatedAt || 0) > localAt){
+        var pairBefore = pk();
         currentState = await FX.updateState(function(s){
-          s.targetRate = remote.targetRate == null ? null : remote.targetRate;
-          s.theme = remote.theme || null;
-          if (remote.amount > 0) s.amount = remote.amount;
+          // older rows (EUR/INR-only version) used targetRate
+          if (remote.targetRate !== undefined && !remote.targets) remote.targets = remote.targetRate == null ? {} : { 'EUR>INR': remote.targetRate };
+          FX.SYNCED.forEach(function(k){ if (remote[k] !== undefined) s[k] = remote[k]; });
           s.updatedAt = remote.updatedAt;
-          s.targetFired = FX.targetFiredFor(currentHistory, s.targetRate);
+        }, false);
+        // a target that's already met counts as seen
+        var k = pk();
+        currentState = await FX.updateState(function(s){
+          s.alerts[k] = Object.assign({}, s.alerts[k], { targetFired: FX.targetFiredFor(currentHistory, s.targets[k]) });
         }, false);
         applyState();
-        renderAll();
+        if (pk() !== pairBefore) await loadPair(); else renderAll();
       } else if (remote ? localAt > (remote.updatedAt || 0) : localAt > 0){
         await sbPush();
       }
@@ -933,14 +1160,14 @@
   function setSyncMsg(msg){ els.syncMsg.textContent = msg; }
 
   function renderSync(){
-    if (!sbOn()){ els.syncBlock.hidden = true; return; }
-    els.syncBlock.hidden = false;
+    if (!sbOn()){ els.syncSec.hidden = true; return; }
+    els.syncSec.hidden = false;
     if (sbSession){
-      els.syncStatus.textContent = 'Settings synced · ' + (sbSession.email || 'signed in');
+      els.syncStatus.textContent = 'Synced · ' + (sbSession.email || 'signed in');
       els.syncToggle.textContent = 'Sign out';
       els.syncForm.hidden = true;
     } else {
-      els.syncStatus.textContent = 'Settings sync is off.';
+      els.syncStatus.textContent = 'Off';
       els.syncToggle.textContent = els.syncForm.hidden ? 'Sign in' : 'Cancel';
     }
   }
@@ -948,7 +1175,7 @@
   // ---------- wiring ----------
   function wireControls(){
     els.refreshBtn.addEventListener('click', function(){ refresh(true); });
-    els.retryBtn.addEventListener('click', function(){ refresh(true); });
+    els.retryBtn.addEventListener('click', function(){ loadPair(); });
 
     els.amountInput.addEventListener('input', function(){
       updateConverterOutput();
@@ -959,16 +1186,44 @@
       }, 600);
     });
 
-    els.themeToggle.addEventListener('click', async function(){
-      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      setTheme(next);
-      await saveSettings({ theme: next });
+    els.swapBtn.addEventListener('click', swapPair);
+    els.swapBtn2.addEventListener('click', swapPair);
+    els.selBase.addEventListener('change', function(){ setPair(els.selBase.value, quote()); });
+    els.selQuote.addEventListener('change', function(){ setPair(base(), els.selQuote.value); });
+
+    els.addCurrency.addEventListener('change', async function(){
+      var c = els.addCurrency.value; if (!c) return;
+      await saveSettings({ currencies: currentState.currencies.concat([c]) });
+      renderSettingsLists();
+    });
+    els.chips.addEventListener('click', async function(e){
+      var btn = e.target.closest('button[data-remove]'); if (!btn || btn.disabled) return;
+      var c = btn.dataset.remove;
+      await saveSettings({ currencies: currentState.currencies.filter(function(x){ return x !== c; }) });
+      renderSettingsLists();
     });
 
-    Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(b){
-      b.addEventListener('click', function(){
-        ui.range = Number(b.dataset.range); saveUI(); renderChart();
-      });
+    els.themeSeg.addEventListener('click', async function(e){
+      var b = e.target.closest('[data-theme-opt]'); if (!b) return;
+      var v = b.dataset.themeOpt === 'system' ? null : b.dataset.themeOpt;
+      currentState.theme = v; applyAppearance();
+      await saveSettings({ theme: v });
+    });
+    els.swatches.addEventListener('click', async function(e){
+      var b = e.target.closest('[data-accent]'); if (!b) return;
+      currentState.accent = b.dataset.accent; applyAppearance();
+      await saveSettings({ accent: b.dataset.accent });
+    });
+
+    els.settingsBtn.addEventListener('click', openDrawer);
+    els.closeDrawer.addEventListener('click', closeDrawer);
+    els.scrim.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && els.drawer.classList.contains('open')) closeDrawer();
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.chart-head .seg'), function(b){
+      b.addEventListener('click', function(){ ui.range = Number(b.dataset.range); saveUI(); renderChart(); });
     });
 
     var wrap = els.chartWrap;
@@ -986,13 +1241,16 @@
       e.preventDefault();
       var val = parseFloat(els.targetInput.value);
       var target = (isNaN(val) || val <= 0) ? null : val;
-      var fired = FX.targetFiredFor(currentHistory, target);
-      await saveSettings({ targetRate: target, targetFired: fired });
+      var k = pk(), fired = FX.targetFiredFor(currentHistory, target);
+      var targets = Object.assign({}, currentState.targets);
+      if (target == null) delete targets[k]; else targets[k] = target;
+      await saveSettings({ targets: targets });
+      currentState = await FX.updateState(function(s){ s.alerts[k] = Object.assign({}, s.alerts[k], { targetFired: fired }); }, false);
       renderAll();
       if (target == null){
         els.targetStatus.textContent = 'Target cleared.';
       } else {
-        var msg = 'Alert set for ' + fmtStat(target) + '.';
+        var msg = 'Alert set for ' + FX.fmtMoney(target, quote(), FX.rateDp(target)) + '.';
         if (fired) msg += " The rate is already above this, so you'll be alerted if it dips below and comes back.";
         else if (lastForecast && lastForecast.levels.target && lastForecast.levels.target.p >= 0.01) msg += ' ' + pct(lastForecast.levels.target.p) + ' chance within 4 weeks.';
         if (!notifyActive()) msg += ' Turn on notifications below to receive it.';
@@ -1003,14 +1261,8 @@
     els.enableNotifyBtn.addEventListener('click', toggleNotifications);
 
     els.syncToggle.addEventListener('click', function(){
-      if (sbSession){
-        sbSaveSession(null);
-        setSyncMsg('');
-        renderSync();
-      } else {
-        els.syncForm.hidden = !els.syncForm.hidden;
-        renderSync();
-      }
+      if (sbSession){ sbSaveSession(null); setSyncMsg(''); renderSync(); }
+      else { els.syncForm.hidden = !els.syncForm.hidden; renderSync(); }
     });
     els.syncForm.addEventListener('submit', async function(e){
       e.preventDefault();
@@ -1038,14 +1290,16 @@
   }
 
   async function init(){
-    ['statusDot','statusText','refreshBtn','themeToggle','app','heroValue','heroDate','amountInput','convertedOutput',
-     'verdictText','chartWrap','chartContainer','chartTip','legendBand',
+    ['statusDot','statusText','refreshBtn','settingsBtn','app','swapBtn','pairBase','pairQuote','heroSym','heroValue','heroBase','heroDate',
+     'amountInput','convBase','convertedOutput','verdictText','chartWrap','chartContainer','chartTip','legendBand',
      'peekForecast','fcEmpty','fcBody','fcRangeTitle','rbOuter','rbInner','rbMid','rbNow','rbNowLabel','rbLo','rbMidVal','rbHi',
      'fcMeters','splitUp','splitDn','splitUpLabel','splitDnLabel','fcBacktest',
      'peekStats','posFill','posNow','posNowLabel','posLo','posLoDate','posHi','posHiDate','histBars','histLo','histHi',
      'statAvg7','statAvg30','statChange30',
-     'peekAlerts','targetForm','targetInput','targetStatus','enableNotifyBtn','notifyStatus','errorState','errorText','retryBtn',
-     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg']
+     'peekAlerts','targetForm','targetLabel','targetSym','targetInput','targetStatus','enableNotifyBtn','notifyStatus',
+     'errorState','errorText','retryBtn',
+     'scrim','drawer','closeDrawer','selBase','selQuote','swapBtn2','chips','addCurrency','themeSeg','swatches',
+     'syncSec','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg']
       .forEach(function(id){ els[id] = $(id); });
 
     loadUI();
@@ -1058,16 +1312,9 @@
     sbLoadSession();
     renderSync();
 
-    var cached = await FX.loadHistory();
-    if (cached && cached.length){
-      currentHistory = cached;
-      setStatus('cached', cached[cached.length-1].date);
-      renderAll();
-    }
-
     if (currentState.notifyEnabled) registerPeriodicSync();
 
-    await refresh(!cached || !cached.length);
+    await loadPair();
     syncNow();
     setInterval(function(){ refresh(false); }, 60*60*1000);
   }

@@ -1,4 +1,4 @@
--- EUR → INR tracker: per-user settings sync.
+-- ein: per-user settings sync.
 -- Run once in Supabase → SQL Editor. Safe to re-run.
 
 create table if not exists public.fx_tracker_settings (

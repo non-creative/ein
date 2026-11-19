@@ -1,4 +1,4 @@
-/* fx-core.js
+/* fx-core.js — ein
    Logic shared by the page (index.html) and the service worker (sw.js).
    Nothing in here touches the DOM. */
 (function (root) {
@@ -7,18 +7,31 @@
   // Frankfurter (ECB reference rates). v1 is the documented stable API; the
   // older .app host is kept as a fallback.
   var API_BASES = [
-    { url: 'https://api.frankfurter.dev/v1/', query: '?base=EUR&symbols=INR' },
-    { url: 'https://api.frankfurter.app/', query: '?from=EUR&to=INR' }
+    { url: 'https://api.frankfurter.dev/v1/', q: function (a, b) { return '?base=' + a + '&symbols=' + b; } },
+    { url: 'https://api.frankfurter.app/', q: function (a, b) { return '?from=' + a + '&to=' + b; } }
   ];
   var CHUNK_DAYS = 80;   // every request spans < 90 days so the API returns daily points
-  var KEEP_DAYS = 500;   // history kept on-device (1 year for the forecast + room to check it)
+  var KEEP_DAYS = 500;   // history kept per pair (1 year for the forecast + room to check it)
   var HIGH_DAYS = 90;    // "new high" means highest in this many days
+  var MAX_PAIRS = 8;     // pair histories kept on-device; least recently used are dropped
 
   var DATA_CACHE = 'fx-data';
-  var HISTORY_URL = 'https://fx-data.invalid/history.json';
   var STATE_URL = 'https://fx-data.invalid/state.json';
-  var LS_HISTORY = 'fx-history-eur-inr';
-  var LS_STATE = 'fx-state-eur-inr';
+  var LS_STATE = 'fx-state-eur-inr';      // key kept from v1 so settings carry over
+  var LS_CURRENCIES = 'fx-currencies';
+  var LS_PAIR_INDEX = 'fx-hist-index';
+
+  // ECB reference currencies (fallback if the currency list can't be fetched).
+  var CURRENCY_FALLBACK = {
+    AUD: 'Australian Dollar', BGN: 'Bulgarian Lev', BRL: 'Brazilian Real', CAD: 'Canadian Dollar',
+    CHF: 'Swiss Franc', CNY: 'Chinese Renminbi Yuan', CZK: 'Czech Koruna', DKK: 'Danish Krone',
+    EUR: 'Euro', GBP: 'British Pound', HKD: 'Hong Kong Dollar', HUF: 'Hungarian Forint',
+    IDR: 'Indonesian Rupiah', ILS: 'Israeli New Sheqel', INR: 'Indian Rupee', ISK: 'Icelandic Króna',
+    JPY: 'Japanese Yen', KRW: 'South Korean Won', MXN: 'Mexican Peso', MYR: 'Malaysian Ringgit',
+    NOK: 'Norwegian Krone', NZD: 'New Zealand Dollar', PHP: 'Philippine Peso', PLN: 'Polish Złoty',
+    RON: 'Romanian Leu', SEK: 'Swedish Krona', SGD: 'Singapore Dollar', THB: 'Thai Baht',
+    TRY: 'Turkish Lira', USD: 'United States Dollar', ZAR: 'South African Rand'
+  };
 
   // ---------- dates ----------
   function parseISO(s) { return new Date(s + 'T00:00:00Z'); }
@@ -40,6 +53,42 @@
     return Object.keys(map).sort().map(function (d) { return { date: d, rate: map[d] }; });
   }
 
+  // ---------- pairs ----------
+  // History is stored once per unordered pair (alphabetical), so EUR→INR and INR→EUR share it.
+  function pairInfo(base, quote) {
+    var a = base < quote ? base : quote, b = a === base ? quote : base;
+    return { key: a + '-' + b, a: a, b: b, inverted: a !== base };
+  }
+  function dirKey(base, quote) { return base + '>' + quote; }
+  function invert(h) { return (h || []).map(function (e) { return { date: e.date, rate: 1 / e.rate }; }); }
+
+  // Decimals that keep ~4 significant digits: 104.12, 1.0834, 0.009616.
+  function rateDp(v) {
+    if (!(v > 0)) return 2;
+    if (v >= 100) return 2;
+    if (v >= 10) return 3;
+    if (v >= 1) return 4;
+    return Math.min(6, 4 + Math.floor(-Math.log10(v)));
+  }
+  function localeFor(cur) { return cur === 'INR' ? 'en-IN' : 'en-GB'; }
+  function fmtMoney(v, cur, dp) {
+    try {
+      return new Intl.NumberFormat(localeFor(cur), {
+        style: 'currency', currency: cur, currencyDisplay: 'narrowSymbol',
+        minimumFractionDigits: dp, maximumFractionDigits: dp
+      }).format(v);
+    } catch (e) {
+      return cur + ' ' + Number(v).toFixed(dp);
+    }
+  }
+  function currencySymbol(cur) {
+    try {
+      var parts = new Intl.NumberFormat(localeFor(cur), { style: 'currency', currency: cur, currencyDisplay: 'narrowSymbol' }).formatToParts(1);
+      for (var i = 0; i < parts.length; i++) if (parts[i].type === 'currency') return parts[i].value;
+    } catch (e) { /* fall through */ }
+    return cur;
+  }
+
   // ---------- storage: Cache API (readable by the service worker) + localStorage mirror ----------
   async function cacheRead(url) {
     try {
@@ -56,6 +105,9 @@
       await c.put(url, new Response(JSON.stringify(obj), { headers: { 'Content-Type': 'application/json' } }));
     } catch (e) { /* best effort */ }
   }
+  async function cacheDelete(url) {
+    try { if (typeof caches !== 'undefined') await (await caches.open(DATA_CACHE)).delete(url); } catch (e) { /* ignore */ }
+  }
   function lsRead(key) {
     try { var s = root.localStorage && root.localStorage.getItem(key); return s ? JSON.parse(s) : null; }
     catch (e) { return null; }
@@ -63,36 +115,57 @@
   function lsWrite(key, obj) {
     try { if (root.localStorage) root.localStorage.setItem(key, JSON.stringify(obj)); } catch (e) { /* ignore */ }
   }
+  function lsRemove(key) {
+    try { if (root.localStorage) root.localStorage.removeItem(key); } catch (e) { /* ignore */ }
+  }
 
   // ---------- history ----------
+  function histLsKey(key) { return 'fx-hist-' + key; }
+  function histUrl(key) { return 'https://fx-data.invalid/hist-' + key + '.json'; }
   function newerSeries(a, b) {
     if (!a || !a.length) return b;
     if (!b || !b.length) return a;
     return a[a.length - 1].date >= b[b.length - 1].date ? a : b;
   }
-  async function loadHistory() {
-    return newerSeries(await cacheRead(HISTORY_URL), lsRead(LS_HISTORY)) || null;
+  async function loadCanonical(key) {
+    var h = newerSeries(await cacheRead(histUrl(key)), lsRead(histLsKey(key)));
+    if (!h && key === 'EUR-INR') {
+      // data saved by the EUR/INR-only version
+      h = newerSeries(await cacheRead('https://fx-data.invalid/history.json'), lsRead('fx-history-eur-inr'));
+    }
+    return h || null;
   }
-  async function saveHistory(h) {
-    lsWrite(LS_HISTORY, h);
-    await cacheWrite(HISTORY_URL, h);
+  async function saveCanonical(key, h) {
+    lsWrite(histLsKey(key), h);
+    await cacheWrite(histUrl(key), h);
+    // keep the most recently used pairs only
+    var idx = (lsRead(LS_PAIR_INDEX) || []).filter(function (k) { return k !== key; });
+    idx.unshift(key);
+    var drop = idx.slice(MAX_PAIRS);
+    lsWrite(LS_PAIR_INDEX, idx.slice(0, MAX_PAIRS));
+    for (var i = 0; i < drop.length; i++) { lsRemove(histLsKey(drop[i])); await cacheDelete(histUrl(drop[i])); }
+  }
+  async function loadHistory(base, quote) {
+    var p = pairInfo(base || 'EUR', quote || 'INR');
+    var h = await loadCanonical(p.key);
+    return h ? (p.inverted ? invert(h) : h) : null;
   }
 
-  function parseRange(data) {
+  function parseRange(data, sym) {
     var rates = (data && data.rates) || {};
     return Object.keys(rates)
-      .filter(function (d) { return rates[d] && typeof rates[d].INR === 'number'; })
-      .map(function (d) { return { date: d, rate: rates[d].INR }; })
+      .filter(function (d) { return rates[d] && typeof rates[d][sym] === 'number' && rates[d][sym] > 0; })
+      .map(function (d) { return { date: d, rate: rates[d][sym] }; })
       .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
   }
 
-  async function fetchRange(start, end) {
+  async function fetchRange(a, b, start, end) {
     var lastErr = null;
     for (var i = 0; i < API_BASES.length; i++) {
       try {
-        var res = await fetch(API_BASES[i].url + start + '..' + end + API_BASES[i].query);
+        var res = await fetch(API_BASES[i].url + start + '..' + end + API_BASES[i].q(a, b));
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        var out = parseRange(await res.json());
+        var out = parseRange(await res.json(), b);
         if (out.length) return out;
         throw new Error('No rates in response');
       } catch (e) { lastErr = e; }
@@ -100,7 +173,7 @@
     throw lastErr || new Error('Rate request failed');
   }
 
-  async function fetchFull() {
+  async function fetchFull(a, b) {
     var today = new Date();
     var chunks = [];
     for (var i = 0; i < 7; i++) {
@@ -108,15 +181,16 @@
       chunks.push([isoDate(addDays(end, -CHUNK_DAYS)), isoDate(end)]);
     }
     var results = await Promise.all(chunks.map(function (c, i) {
-      var p = fetchRange(c[0], c[1]);
+      var p = fetchRange(a, b, c[0], c[1]);
       return i === 0 ? p : p.catch(function () { return []; }); // older chunks are best-effort
     }));
     return results.reduce(function (acc, r) { return mergeEntries(acc, r); }, []);
   }
 
   // Fetches only what's missing when a recent history is already on-device.
-  async function syncHistory() {
-    var existing = await loadHistory();
+  async function syncHistory(base, quote) {
+    var p = pairInfo(base || 'EUR', quote || 'INR');
+    var existing = await loadCanonical(p.key);
     var todayIso = isoDate(new Date());
     var hist;
     var canTopUp = existing && existing.length > 1 &&
@@ -124,32 +198,73 @@
       daysBetween(existing[existing.length - 1].date, todayIso) <= 60;
     if (canTopUp) {
       var from = isoDate(addDays(parseISO(existing[existing.length - 1].date), -7));
-      hist = mergeEntries(existing, await fetchRange(from, todayIso));
+      hist = mergeEntries(existing, await fetchRange(p.a, p.b, from, todayIso));
     } else {
-      hist = await fetchFull();
+      hist = await fetchFull(p.a, p.b);
     }
     hist = windowDays(hist, KEEP_DAYS);
-    await saveHistory(hist);
-    return hist;
+    await saveCanonical(p.key, hist);
+    return p.inverted ? invert(hist) : hist;
+  }
+
+  // ---------- currency list ----------
+  function currencyList() {
+    var c = lsRead(LS_CURRENCIES);
+    return (c && c.list && Object.keys(c.list).length > 10) ? c.list : CURRENCY_FALLBACK;
+  }
+  async function fetchCurrencies() {
+    var c = lsRead(LS_CURRENCIES);
+    if (c && c.list && Date.now() - (c.at || 0) < 7 * 86400000) return c.list;
+    for (var i = 0; i < API_BASES.length; i++) {
+      try {
+        var res = await fetch(API_BASES[i].url + 'currencies');
+        if (!res.ok) continue;
+        var list = await res.json();
+        if (list && Object.keys(list).length > 10) { lsWrite(LS_CURRENCIES, { at: Date.now(), list: list }); return list; }
+      } catch (e) { /* try next */ }
+    }
+    return currencyList();
   }
 
   // ---------- state (settings + alert bookkeeping) ----------
+  // Synced fields (via Supabase): theme, accent, amount, base, quote, currencies, targets.
+  var SYNCED = ['theme', 'accent', 'amount', 'base', 'quote', 'currencies', 'targets'];
   function defaultState() {
     return {
-      updatedAt: 0,            // bumps only when a synced field changes (targetRate, theme, amount)
-      targetRate: null,
-      theme: null,
+      updatedAt: 0,           // bumps only when a synced field changes
+      theme: null,            // null = follow system
+      accent: 'copper',
       amount: 1000,
-      notifyEnabled: false,    // per device
-      lastHighAlertDate: null, // per device
-      targetFired: false       // per device; re-arms when the rate drops back under the target
+      base: 'EUR',
+      quote: 'INR',
+      currencies: ['EUR', 'INR', 'USD'],
+      targets: {},            // { 'EUR>INR': 110 }
+      notifyEnabled: false,   // per device
+      alerts: {}              // per device: { 'EUR>INR': { lastHighAlertDate, targetFired } }
     };
+  }
+  function normalizeState(s) {
+    // migrate the EUR/INR-only shape
+    if ('targetRate' in s || 'lastHighAlertDate' in s || 'targetFired' in s) {
+      s.targets = s.targets || {};
+      s.alerts = s.alerts || {};
+      if (s.targetRate != null && s.targets['EUR>INR'] == null) s.targets['EUR>INR'] = s.targetRate;
+      if (!s.alerts['EUR>INR']) s.alerts['EUR>INR'] = { lastHighAlertDate: s.lastHighAlertDate || null, targetFired: !!s.targetFired };
+      delete s.targetRate; delete s.lastHighAlertDate; delete s.targetFired;
+    }
+    if (!s.targets || typeof s.targets !== 'object') s.targets = {};
+    if (!s.alerts || typeof s.alerts !== 'object') s.alerts = {};
+    if (!Array.isArray(s.currencies)) s.currencies = ['EUR', 'INR', 'USD'];
+    if (!s.base || !s.quote || s.base === s.quote) { s.base = 'EUR'; s.quote = 'INR'; }
+    [s.base, s.quote].forEach(function (c) { if (s.currencies.indexOf(c) < 0) s.currencies.push(c); });
+    s.currencies = s.currencies.filter(function (c, i, arr) { return typeof c === 'string' && /^[A-Z]{3}$/.test(c) && arr.indexOf(c) === i; });
+    return s;
   }
   async function loadState() {
     var a = await cacheRead(STATE_URL);
     var b = lsRead(LS_STATE);
     var best = (a && b) ? ((b.updatedAt || 0) > (a.updatedAt || 0) ? b : a) : (a || b);
-    return Object.assign(defaultState(), best || {});
+    return normalizeState(Object.assign(defaultState(), best || {}));
   }
   async function saveState(s) {
     lsWrite(LS_STATE, s);
@@ -159,16 +274,13 @@
   async function updateState(fn, touch) {
     var s = await loadState();
     fn(s);
+    normalizeState(s);
     if (touch) s.updatedAt = Date.now();
     await saveState(s);
     return s;
   }
 
   // ---------- alerts ----------
-  function inr(n, d) {
-    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
-  }
-
   // Is the rate already at/above the target right now? (Used so setting a target never fires instantly.)
   function targetFiredFor(history, target) {
     if (target == null || !history || !history.length) return false;
@@ -176,44 +288,50 @@
   }
 
   // Treat whatever is true right now as already seen.
-  function acknowledge(history, state) {
+  function acknowledge(history, target) {
     if (!history || !history.length) return {};
-    var latest = history[history.length - 1];
-    return { lastHighAlertDate: latest.date, targetFired: targetFiredFor(history, state.targetRate) };
+    return { lastHighAlertDate: history[history.length - 1].date, targetFired: targetFiredFor(history, target) };
   }
 
-  function evaluateAlerts(history, state) {
+  // Returns notes to show and a patch for state.alerts[base>quote].
+  function evaluateAlerts(history, state, base, quote) {
+    base = base || state.base; quote = quote || state.quote;
+    var k = dirKey(base, quote);
+    var mem = (state.alerts && state.alerts[k]) || {};
+    var target = state.targets ? state.targets[k] : null;
     var notes = [], patch = {};
     if (!history || history.length < 2) return { notes: notes, patch: patch };
     var latest = history[history.length - 1];
+    var dp = rateDp(latest.rate);
     var amount = state.amount > 0 ? state.amount : 1000;
+    var pair = base + ' → ' + quote;
 
     // New high: strictly above everything in the previous HIGH_DAYS days, once per data date.
     var prior = windowDays(history, HIGH_DAYS).filter(function (e) { return e.date < latest.date; });
-    if (prior.length >= 15 && state.lastHighAlertDate !== latest.date) {
+    if (prior.length >= 15 && mem.lastHighAlertDate !== latest.date) {
       var priorMax = Math.max.apply(null, prior.map(function (e) { return e.rate; }));
       if (latest.rate > priorMax) {
         notes.push({
-          tag: 'fx-high',
-          title: 'EUR → INR is at a ' + HIGH_DAYS + '-day high',
-          body: '1 EUR = ' + inr(latest.rate, 2) + ' · ' + amount.toLocaleString('en-IN') + ' EUR ≈ ' + inr(latest.rate * amount, 0)
+          tag: 'fx-high-' + k,
+          title: pair + ' is at a ' + HIGH_DAYS + '-day high',
+          body: '1 ' + base + ' = ' + fmtMoney(latest.rate, quote, dp) + ' · ' + fmtMoney(amount, base, 0) + ' ≈ ' + fmtMoney(latest.rate * amount, quote, 0)
         });
         patch.lastHighAlertDate = latest.date;
       }
     }
 
     // Target: fires once on the way up, re-arms once the rate falls back under it.
-    if (state.targetRate != null) {
-      if (latest.rate >= state.targetRate) {
-        if (!state.targetFired) {
+    if (target != null) {
+      if (latest.rate >= target) {
+        if (!mem.targetFired) {
           notes.push({
-            tag: 'fx-target',
-            title: 'EUR → INR reached your target',
-            body: '1 EUR = ' + inr(latest.rate, 2) + ' (target ' + inr(state.targetRate, 2) + ')'
+            tag: 'fx-target-' + k,
+            title: pair + ' reached your target',
+            body: '1 ' + base + ' = ' + fmtMoney(latest.rate, quote, dp) + ' (target ' + fmtMoney(target, quote, dp) + ')'
           });
           patch.targetFired = true;
         }
-      } else if (state.targetFired) {
+      } else if (mem.targetFired) {
         patch.targetFired = false;
       }
     }
@@ -241,21 +359,26 @@
   }
 
   // Evaluate + notify. State is saved first so a second context can't send the same alert.
-  async function checkAlerts(history) {
+  async function checkAlerts(history, base, quote) {
     var state = await loadState();
+    base = base || state.base; quote = quote || state.quote;
     if (!state.notifyEnabled) return [];
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return [];
-    var r = evaluateAlerts(history, state);
-    if (Object.keys(r.patch).length) await updateState(function (s) { Object.assign(s, r.patch); }, false);
+    var r = evaluateAlerts(history, state, base, quote);
+    var k = dirKey(base, quote);
+    if (Object.keys(r.patch).length) {
+      await updateState(function (s) { s.alerts[k] = Object.assign({}, s.alerts[k], r.patch); }, false);
+    }
     await showNotes(r.notes);
     return r.notes;
   }
 
-  // Used by the service worker's periodic background sync.
+  // Used by the service worker's periodic background sync: checks the pair on the home screen.
   async function backgroundCheck() {
     try {
-      var hist = await syncHistory();
-      await checkAlerts(hist);
+      var s = await loadState();
+      var hist = await syncHistory(s.base, s.quote);
+      await checkAlerts(hist, s.base, s.quote);
     } catch (e) { /* offline or API down: try again next time */ }
   }
 
@@ -422,6 +545,14 @@
     addBusinessDays: addBusinessDays,
     windowDays: windowDays,
     mergeEntries: mergeEntries,
+    pairInfo: pairInfo,
+    dirKey: dirKey,
+    rateDp: rateDp,
+    fmtMoney: fmtMoney,
+    currencySymbol: currencySymbol,
+    currencyList: currencyList,
+    fetchCurrencies: fetchCurrencies,
+    SYNCED: SYNCED,
     loadHistory: loadHistory,
     syncHistory: syncHistory,
     loadState: loadState,

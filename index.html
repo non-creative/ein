@@ -66,71 +66,138 @@
   }
   .container{
     max-width:560px; margin:0 auto;
-    padding:max(32px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(64px, calc(env(safe-area-inset-bottom) + 32px)) max(20px, env(safe-area-inset-left));
+    padding:max(28px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(56px, calc(env(safe-area-inset-bottom) + 32px)) max(20px, env(safe-area-inset-left));
   }
   a{ color:var(--accent); }
   button{ font-family:inherit; }
   :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .num{ font-variant-numeric:tabular-nums; }
 
-  .topbar{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  /* header */
+  .topbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .brand{ font-family:var(--serif); font-size:20px; font-weight:600; }
-  .status{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); }
+  .status{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); }
   .dot{ width:7px; height:7px; border-radius:50%; background:var(--wait); flex-shrink:0; }
-  .link-btn{ background:none; border:none; color:var(--accent); font-family:var(--mono); font-size:12px; cursor:pointer; padding:6px 4px; text-decoration:underline; }
+  .icon-btn{ background:none; border:none; color:var(--ink-soft); cursor:pointer; padding:6px; display:inline-flex; border-radius:6px; }
+  .icon-btn:hover{ color:var(--accent); }
+  .icon-btn svg{ width:16px; height:16px; }
+  .spin svg{ animation:spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 
-  .hero{ margin-top:30px; }
-  .hero-rate{ font-family:var(--mono); font-weight:600; font-size:clamp(46px,13vw,72px); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:4px; }
+  /* hero */
+  .hero{ margin-top:28px; }
+  .hero-rate{ font-weight:600; font-size:clamp(46px,13vw,72px); letter-spacing:-0.02em; line-height:1.05; display:flex; align-items:baseline; gap:4px; }
   .rupee{ font-size:0.5em; color:var(--ink-soft); }
-  .hero-meta{ color:var(--ink-soft); font-size:13px; margin-top:2px; }
-  .converter{ margin-top:18px; display:flex; align-items:center; gap:8px; font-size:14px; flex-wrap:wrap; }
-  .converter input{ width:110px; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
-  .converted{ font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; }
+  .hero-meta{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px 16px; margin-top:6px; font-size:13px; color:var(--ink-soft); }
+  .converter{ display:flex; align-items:baseline; gap:6px; color:var(--ink); }
+  .converter input{ width:84px; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:2px 2px; border-radius:0; text-align:right; }
+  .converted{ font-weight:600; color:var(--accent); }
 
-  .verdict{ margin-top:30px; }
-  .verdict p{ margin:0; }
-  #verdictText{ font-family:var(--serif); font-size:19px; line-height:1.5; }
-  .outlook{ font-family:var(--serif); font-size:16px; line-height:1.5; color:var(--ink-soft); margin-top:12px !important; }
-  .disclaimer{ margin-top:10px !important; font-size:12px; color:var(--ink-soft); }
+  #verdictText{ font-family:var(--serif); font-size:18px; line-height:1.5; margin:22px 0 0; }
 
-  .rule{ height:1px; background:var(--line); margin:28px 0; }
+  /* chart */
+  .chart-block{ margin-top:26px; }
+  .chart-head{ display:flex; justify-content:flex-end; gap:2px; margin-bottom:6px; }
+  .seg{ background:none; border:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); padding:4px 8px; border-radius:6px; cursor:pointer; }
+  .seg[aria-pressed="true"]{ background:var(--paper-2); color:var(--ink); }
+  .chart-wrap{ position:relative; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+  #chartContainer svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .tip{ position:absolute; top:0; pointer-events:none; background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:11.5px; line-height:1.45; white-space:nowrap; transform:translateX(-50%); }
+  .tip b{ font-weight:600; }
+  .tip span{ color:var(--ink-soft); }
+  .legend{ display:flex; gap:14px; margin-top:6px; font-size:11px; color:var(--ink-soft); }
+  .legend i{ display:inline-block; width:14px; height:8px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+  .legend .l-hist{ height:2px; background:var(--accent); }
+  .legend .l-band{ background:var(--accent); opacity:.22; }
 
-  #chartContainer svg{ width:100%; height:auto; display:block; }
-  .chart-caption{ font-size:11px; color:var(--ink-soft); margin-top:8px; }
+  .grid-line{ stroke:var(--line); stroke-width:1; stroke-dasharray:2,3; }
+  .axis-label{ font-family:var(--mono); font-size:10px; fill:var(--ink-soft); }
+  .hist-line{ stroke:var(--accent); stroke-width:2; fill:none; stroke-linejoin:round; }
+  .fc-band{ fill:var(--accent); fill-opacity:.12; }
+  .fc-band-in{ fill:var(--accent); fill-opacity:.14; }
+  .fc-mid{ stroke:var(--accent); stroke-width:1.5; stroke-dasharray:3,4; fill:none; opacity:.7; }
+  .today-line{ stroke:var(--line); stroke-width:1; }
+  .current-dot{ fill:var(--accent); stroke:var(--paper); stroke-width:2; }
+  .cross{ stroke:var(--ink-soft); stroke-width:1; }
+  .cross-dot{ fill:var(--paper); stroke:var(--accent); stroke-width:2; }
 
-  .stat-row{ display:flex; justify-content:space-between; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; gap:12px; }
-  .stat-row:last-child{ border-bottom:none; }
-  .stat-row span:first-child{ color:var(--ink-soft); }
-  .stat-row span:last-child{ font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+  /* collapsible sections */
+  details{ border-top:1px solid var(--line); }
+  details:last-of-type{ border-bottom:1px solid var(--line); }
+  .sections{ margin-top:30px; }
+  summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:15px 0; }
+  summary::-webkit-details-marker{ display:none; }
+  summary .s-title{ font-family:var(--serif); font-size:16px; font-weight:600; }
+  summary .s-peek{ margin-left:auto; font-size:12.5px; color:var(--ink-soft); text-align:right; }
+  summary .chev{ width:14px; height:14px; color:var(--ink-soft); transition:transform .2s ease; flex-shrink:0; }
+  details[open] summary .chev{ transform:rotate(180deg); }
+  .s-body{ padding:2px 0 22px; }
+  @media (prefers-reduced-motion: reduce){ summary .chev{ transition:none; } .spin svg{ animation:none; } }
 
-  .alerts h2{ font-family:var(--serif); font-size:16px; font-weight:600; margin:0 0 14px; }
+  .sub{ font-size:12px; color:var(--ink-soft); margin:0 0 10px; }
+  .block + .block{ margin-top:24px; }
+  .hint{ font-size:11.5px; color:var(--ink-soft); margin:12px 0 0; line-height:1.55; }
+
+  /* range bar */
+  .rangebar{ position:relative; height:46px; margin:4px 0 2px; }
+  .rb-track{ position:absolute; left:0; right:0; top:22px; height:2px; background:var(--line); border-radius:1px; }
+  .rb-outer, .rb-inner{ position:absolute; top:16px; height:14px; border-radius:4px; background:var(--accent); }
+  .rb-outer{ opacity:.2; }
+  .rb-inner{ opacity:.38; }
+  .rb-mid{ position:absolute; top:13px; width:2px; height:20px; background:var(--accent); border-radius:1px; transform:translateX(-1px); }
+  .rb-now{ position:absolute; top:12px; width:10px; height:10px; border-radius:50%; background:var(--ink); border:2px solid var(--paper); transform:translate(-5px, 6px); }
+  .rb-now-label{ position:absolute; top:-4px; font-size:10.5px; color:var(--ink-soft); transform:translateX(-50%); white-space:nowrap; }
+  .rb-ends{ display:flex; justify-content:space-between; font-size:12px; }
+  .rb-ends span:nth-child(2){ color:var(--ink-soft); }
+
+  /* meters */
+  .meter{ display:grid; grid-template-columns:minmax(0,1fr) 92px 40px; align-items:center; gap:10px; padding:7px 0; }
+  .m-label{ font-size:13px; line-height:1.35; }
+  .m-label small{ display:block; font-size:11px; color:var(--ink-soft); }
+  .m-track{ height:6px; background:var(--paper-2); border-radius:3px; overflow:hidden; }
+  :root[data-theme="dark"] .m-track{ background:var(--line); }
+  .m-fill{ height:100%; background:var(--accent); border-radius:3px; }
+  .meter.down .m-fill{ background:var(--ink-soft); }
+  .m-val{ font-size:13px; font-weight:600; text-align:right; }
+
+  .split{ display:flex; height:6px; border-radius:3px; overflow:hidden; gap:2px; margin:6px 0 4px; }
+  .split .up{ background:var(--accent); }
+  .split .dn{ background:var(--ink-soft); opacity:.55; }
+  .split-labels{ display:flex; justify-content:space-between; font-size:12px; }
+
+  /* stats */
+  .pos-labels{ display:flex; justify-content:space-between; font-size:12px; margin-top:4px; }
+  .pos-labels span{ display:flex; flex-direction:column; }
+  .pos-labels span:last-child{ text-align:right; }
+  .pos-labels small{ font-size:10.5px; color:var(--ink-soft); }
+  .hist-bars{ display:flex; align-items:flex-end; gap:2px; height:56px; }
+  .hist-bars div{ flex:1; background:var(--line); border-radius:2px 2px 0 0; min-height:2px; }
+  .hist-bars div.now{ background:var(--accent); }
+  .mini{ display:flex; justify-content:space-between; font-size:13px; padding:6px 0; }
+  .mini span:first-child{ color:var(--ink-soft); }
+  .mini span:last-child{ font-weight:600; }
+
+  /* alerts */
   .target-form label{ display:block; font-size:13px; color:var(--ink-soft); margin-bottom:6px; }
   .target-row{ display:flex; align-items:center; gap:6px; }
   .target-row input, .sync-form input{ flex:1; min-width:0; font-family:var(--mono); font-size:16px; border:none; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); padding:4px 2px; border-radius:0; }
-  .target-row button, .secondary-btn{ font-family:var(--mono); font-size:12px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink); padding:9px 14px; cursor:pointer; }
-  .secondary-btn{ margin-top:14px; }
-  .hint{ font-size:12px; color:var(--ink-soft); margin:8px 0 0; }
+  .btn{ font-family:var(--mono); font-size:12px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink); padding:9px 14px; cursor:pointer; border-radius:6px; }
+  .notify-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; }
+  .notify-row p{ margin:0; font-size:13px; }
+  .switch{ position:relative; width:40px; height:24px; border-radius:12px; background:var(--line); border:none; cursor:pointer; flex-shrink:0; transition:background .2s; }
+  .switch::after{ content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--paper); transition:transform .2s; }
+  .switch[aria-checked="true"]{ background:var(--accent); }
+  .switch[aria-checked="true"]::after{ transform:translateX(16px); }
+  .status-line{ font-size:12px; color:var(--ink-soft); margin:8px 0 0; min-height:1em; }
 
   .error-state{ margin-top:36px; }
   .error-state p{ margin:0 0 12px; }
 
-  footer{ margin-top:44px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
-  .sync{ margin-top:14px; }
-  .sync .link-btn{ font-size:11.5px; padding:6px 4px; }
+  footer{ margin-top:36px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
+  .sync{ margin-top:12px; }
+  .link-btn{ background:none; border:none; color:var(--accent); font-family:var(--mono); font-size:11.5px; cursor:pointer; padding:6px 4px; text-decoration:underline; }
   .sync-form{ display:flex; flex-direction:column; gap:10px; margin-top:8px; max-width:320px; }
-  .sync-form .secondary-btn{ margin-top:4px; align-self:flex-start; }
-
-  .grid-line{ stroke:var(--line); stroke-width:1; stroke-dasharray:2,3; }
-  .axis-label{ font-family:var(--mono); font-size:10px; fill:var(--ink-soft); }
-  .hist-line{ stroke:var(--accent); stroke-width:2; }
-  .fc-band{ fill:var(--accent); fill-opacity:.14; stroke:none; }
-  .fc-mid{ stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4,4; fill:none; opacity:.8; }
-  .today-line{ stroke:var(--line); stroke-width:1; }
-
-  .forecast h2{ font-family:var(--serif); font-size:16px; font-weight:600; margin:0 0 10px; }
-  #fcHeadline{ font-family:var(--serif); font-size:16px; line-height:1.5; margin:0 0 6px; }
-  #fcWhen{ font-size:13px; color:var(--ink-soft); margin:0 0 10px; }
-  .forecast .stat-row small{ font-weight:400; color:var(--ink-soft); }
-  .current-dot{ fill:var(--accent); }
+  .sync-form .btn{ align-self:flex-start; }
 
   [hidden]{ display:none !important; }
 </style>
@@ -143,85 +210,149 @@
     <div class="status">
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Loading…</span>
-      <button class="link-btn" id="refreshBtn" type="button">Refresh</button>
-      <button class="link-btn" id="themeToggle" type="button">Dark</button>
+      <button class="icon-btn" id="refreshBtn" type="button" aria-label="Refresh rates">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+      </button>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+      </button>
     </div>
   </header>
 
   <div id="app" hidden>
     <section class="hero">
-      <div class="hero-rate"><span class="rupee">₹</span><span id="heroValue">--.--</span></div>
-      <div class="hero-meta">1 EUR · <span id="heroDate">—</span></div>
-
-      <div class="converter">
-        <input type="number" id="amountInput" value="1000" min="0" step="1" inputmode="decimal" aria-label="Amount in EUR" />
-        <span>EUR ≈</span>
-        <span class="converted" id="convertedOutput">—</span>
+      <div class="hero-rate num"><span class="rupee">₹</span><span id="heroValue">--.--</span></div>
+      <div class="hero-meta">
+        <span>1 EUR · <span id="heroDate">—</span></span>
+        <label class="converter">
+          <input type="number" id="amountInput" value="1000" min="0" step="1" inputmode="decimal" aria-label="Amount in EUR" class="num" />
+          <span>EUR ≈</span>
+          <span class="converted num" id="convertedOutput">—</span>
+        </label>
       </div>
     </section>
 
-    <section class="verdict">
-      <p id="verdictText">—</p>
-      <p class="outlook" id="outlookText">—</p>
-      <p class="disclaimer">Both are a read of recent European Central Bank reference rates — a momentum check, not a forecast. Currency moves can turn quickly.</p>
+    <p id="verdictText">—</p>
+
+    <section class="chart-block">
+      <div class="chart-head" role="group" aria-label="Chart range">
+        <button class="seg" type="button" data-range="30" aria-pressed="false">1M</button>
+        <button class="seg" type="button" data-range="90" aria-pressed="true">3M</button>
+        <button class="seg" type="button" data-range="365" aria-pressed="false">1Y</button>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <div id="chartContainer"></div>
+        <div class="tip" id="chartTip" hidden></div>
+      </div>
+      <div class="legend"><span><i class="l-hist"></i>Rate</span><span id="legendBand"><i class="l-band"></i>Likely range, next 4 weeks</span></div>
     </section>
 
-    <div class="rule"></div>
+    <div class="sections">
+      <details id="secForecast" data-key="forecast">
+        <summary>
+          <span class="s-title">Forecast</span>
+          <span class="s-peek num" id="peekForecast">—</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div id="fcEmpty" class="sub" hidden>Not enough history yet for a forecast.</div>
+          <div id="fcBody">
+            <div class="block">
+              <p class="sub" id="fcRangeTitle">Likely rate in 4 weeks</p>
+              <div class="rangebar" id="fcRangeBar">
+                <div class="rb-track"></div>
+                <div class="rb-outer" id="rbOuter"></div>
+                <div class="rb-inner" id="rbInner"></div>
+                <div class="rb-mid" id="rbMid"></div>
+                <div class="rb-now-label" id="rbNowLabel">today</div>
+                <div class="rb-now" id="rbNow"></div>
+              </div>
+              <div class="rb-ends num"><span id="rbLo">—</span><span id="rbMidVal">—</span><span id="rbHi">—</span></div>
+            </div>
 
-    <section class="chart-section">
-      <div id="chartContainer"></div>
-      <div class="chart-caption">Solid line: last 90 days. Shaded: where 8 in 10 simulations land over the next 4 weeks, dashed line in the middle.</div>
-    </section>
+            <div class="block">
+              <p class="sub">Chance it reaches, within 4 weeks</p>
+              <div id="fcMeters"></div>
+            </div>
 
-    <div class="rule"></div>
+            <div class="block">
+              <p class="sub">Higher or lower than today in 4 weeks</p>
+              <div class="split"><div class="up" id="splitUp"></div><div class="dn" id="splitDn"></div></div>
+              <div class="split-labels num"><span id="splitUpLabel">—</span><span id="splitDnLabel">—</span></div>
+            </div>
 
-    <section class="forecast" id="forecastSection" hidden>
-      <h2>Next 4 weeks</h2>
-      <p id="fcHeadline">—</p>
-      <p id="fcWhen"></p>
-      <div class="stat-row"><span>Higher than today in 1 week</span><span id="fcWeek1">—</span></div>
-      <div class="stat-row"><span>Higher than today in 4 weeks</span><span id="fcWeek4">—</span></div>
-      <div class="stat-row"><span id="fcRangeLabel">Likely range in 4 weeks</span><span id="fcRange">—</span></div>
-      <div class="stat-row"><span id="fcHighLabel">New 90-day high</span><span id="fcHigh">—</span></div>
-      <div class="stat-row" id="fcTargetRow" hidden><span id="fcTargetLabel">Reaches your target</span><span id="fcTarget">—</span></div>
-      <p class="hint" id="fcMethod">From 4,000 simulations that replay the last 6 months of daily moves. Currency moves are mostly random, so read these as odds, not promises.</p>
-      <p class="hint" id="fcBacktest"></p>
-    </section>
-
-    <div class="rule" id="forecastRule" hidden></div>
-
-    <section class="stats">
-      <div class="stat-row"><span>7-day average</span><span id="statAvg7">—</span></div>
-      <div class="stat-row"><span>30-day average</span><span id="statAvg30">—</span></div>
-      <div class="stat-row"><span>90-day high</span><span id="statHigh90">—</span></div>
-      <div class="stat-row"><span>90-day low</span><span id="statLow90">—</span></div>
-      <div class="stat-row"><span>30-day change</span><span id="statChange30">—</span></div>
-      <div class="stat-row"><span>Vs. last 180 days</span><span id="statPercentile">—</span></div>
-    </section>
-
-    <div class="rule"></div>
-
-    <section class="alerts">
-      <h2>Alerts</h2>
-      <form class="target-form" id="targetForm">
-        <label for="targetInput">Notify me when 1 EUR reaches</label>
-        <div class="target-row">
-          <span>₹</span>
-          <input type="number" id="targetInput" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 110.00" />
-          <button type="submit">Set</button>
+            <p class="hint">Replays the last year of daily moves, scaled to how volatile the market is right now. Tested on 10 years of real EUR/INR rates: its range held 80% of the time. Direction can't be predicted from past rates, so up vs. down stays near even.</p>
+            <p class="hint" id="fcBacktest"></p>
+          </div>
         </div>
-      </form>
-      <p class="hint" id="targetStatus"></p>
+      </details>
 
-      <button class="secondary-btn" id="enableNotifyBtn" type="button">Enable notifications</button>
-      <p class="hint" id="notifyStatus">Notifications are off.</p>
-      <p class="hint">Alerts for a new 90-day high, or when the rate reaches your target. Checked whenever the app opens, and in the background where your browser allows it (installed app on Chrome or Edge).</p>
-    </section>
+      <details id="secStats" data-key="stats">
+        <summary>
+          <span class="s-title">Recent rates</span>
+          <span class="s-peek num" id="peekStats">—</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <div class="block">
+            <p class="sub">Today within the 90-day range</p>
+            <div class="rangebar">
+              <div class="rb-track"></div>
+              <div class="rb-outer" id="posFill" style="left:0"></div>
+              <div class="rb-now-label" id="posNowLabel">today</div>
+              <div class="rb-now" id="posNow"></div>
+            </div>
+            <div class="pos-labels num">
+              <span><b id="posLo">—</b><small id="posLoDate">low</small></span>
+              <span><b id="posHi">—</b><small id="posHiDate">high</small></span>
+            </div>
+          </div>
+
+          <div class="block">
+            <p class="sub" id="histTitle">How often each rate occurred, last 6 months</p>
+            <div class="hist-bars" id="histBars" role="img"></div>
+            <div class="pos-labels num"><span id="histLo">—</span><span id="histHi">—</span></div>
+          </div>
+
+          <div class="block">
+            <div class="mini"><span>7-day average</span><span class="num" id="statAvg7">—</span></div>
+            <div class="mini"><span>30-day average</span><span class="num" id="statAvg30">—</span></div>
+            <div class="mini"><span>30-day change</span><span class="num" id="statChange30">—</span></div>
+          </div>
+        </div>
+      </details>
+
+      <details id="secAlerts" data-key="alerts">
+        <summary>
+          <span class="s-title">Alerts</span>
+          <span class="s-peek" id="peekAlerts">Off</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="s-body">
+          <form class="target-form" id="targetForm">
+            <label for="targetInput">Notify me when 1 EUR reaches</label>
+            <div class="target-row">
+              <span>₹</span>
+              <input type="number" id="targetInput" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 110.00" class="num" />
+              <button class="btn" type="submit">Set</button>
+            </div>
+          </form>
+          <p class="status-line" id="targetStatus"></p>
+
+          <div class="notify-row">
+            <p>Notifications</p>
+            <button class="switch" id="enableNotifyBtn" type="button" role="switch" aria-checked="false" aria-label="Notifications"></button>
+          </div>
+          <p class="status-line" id="notifyStatus"></p>
+          <p class="hint">Alerts for a new 90-day high, or when the rate reaches your target. Checked whenever the app opens, and in the background where your browser allows it (installed app on Chrome or Edge).</p>
+        </div>
+      </details>
+    </div>
   </div>
 
   <div class="error-state" id="errorState" hidden>
     <p id="errorText">Couldn't load exchange rates.</p>
-    <button class="secondary-btn" id="retryBtn" type="button">Try again</button>
+    <button class="btn" id="retryBtn" type="button">Try again</button>
   </div>
 
   <footer>
@@ -232,9 +363,9 @@
       <form class="sync-form" id="syncForm" hidden>
         <input type="email" id="syncEmail" placeholder="email" autocomplete="username" required />
         <input type="password" id="syncPass" placeholder="password" autocomplete="current-password" required />
-        <button class="secondary-btn" type="submit">Sign in</button>
+        <button class="btn" type="submit">Sign in</button>
       </form>
-      <p class="hint" id="syncMsg"></p>
+      <p class="status-line" id="syncMsg"></p>
     </div>
   </footer>
 
@@ -248,16 +379,23 @@
 
   var FX = window.FX;
   var CFG = window.FX_CONFIG || {};
+  var UI_KEY = 'fx-ui-eur-inr';
 
   var els = {};
   var currentHistory = [];
   var currentState = null;
   var lastStats = null;
+  var lastForecast = null;
   var heroAnimated = false;
   var lastSyncAt = 0;
   var amountTimer = null;
+  var chartModel = null;
+  var ui = { range: 90, open: {} };
 
   function $(id){ return document.getElementById(id); }
+
+  function loadUI(){ try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch(e){} }
+  function saveUI(){ try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch(e){} }
 
   function fmtDateShort(iso){
     var d = new Date(iso + 'T00:00:00Z');
@@ -268,8 +406,14 @@
     var sign = change >= 0 ? '+' : '−';
     return sign + '₹' + Math.abs(change).toFixed(2) + ' (' + sign + Math.abs(pct).toFixed(1) + '%)';
   }
+  function pct(p){
+    if (p < 0.01) return '<1%';
+    if (p > 0.99) return '>99%';
+    return Math.round(p*100) + '%';
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
 
-  // ---------- stats (windows are calendar days, so the labels are accurate) ----------
+  // ---------- stats (calendar-day windows) ----------
   function avg(arr){ return arr.reduce(function(s,e){ return s+e.rate; }, 0) / arr.length; }
   function maxEntry(arr){ return arr.reduce(function(m,e){ return e.rate > m.rate ? e : m; }, arr[0]); }
   function minEntry(arr){ return arr.reduce(function(m,e){ return e.rate < m.rate ? e : m; }, arr[0]); }
@@ -284,85 +428,51 @@
     var win90 = FX.windowDays(history, 90);
     var win30 = FX.windowDays(history, 30);
     var win7 = FX.windowDays(history, 7);
-    var avg7 = avg(win7);
-    var avg30 = avg(win30);
-    var high90 = maxEntry(win90);
-    var low90 = minEntry(win90);
-    var percentile = percentileOf(current.rate, win180);
     var change30 = win30.length > 1 ? current.rate - win30[0].rate : 0;
-    var change30Pct = (win30.length > 1 && win30[0].rate) ? (change30/win30[0].rate)*100 : 0;
-    var relDiff = avg30 ? (avg7-avg30)/avg30 : 0;
-    var trend = relDiff > 0.003 ? 'up' : relDiff < -0.003 ? 'down' : 'flat';
-    return { current:current, avg7:avg7, avg30:avg30, high90:high90, low90:low90, percentile:percentile, change30:change30, change30Pct:change30Pct, trend:trend };
+    return {
+      current: current, win180: win180,
+      avg7: avg(win7), avg30: avg(win30),
+      high90: maxEntry(win90), low90: minEntry(win90),
+      percentile: percentileOf(current.rate, win180),
+      change30: change30,
+      change30Pct: (win30.length > 1 && win30[0].rate) ? (change30/win30[0].rate)*100 : 0
+    };
   }
 
-  function linearRegression(arr){
-    var n = arr.length, sumX=0, sumY=0, sumXY=0, sumXX=0;
-    arr.forEach(function(e,i){ sumX+=i; sumY+=e.rate; sumXY+=i*e.rate; sumXX+=i*i; });
-    var denom = (n*sumXX - sumX*sumX);
-    var slope = denom ? (n*sumXY - sumX*sumY)/denom : 0;
-    var intercept = (sumY - slope*sumX)/n;
-    return { slope:slope, intercept:intercept };
-  }
-
-  var VERDICTS = {
-    'high-up':   "The rate is high compared to its recent range and still climbing — a reasonable moment to convert if you need to.",
-    'high-down': "The rate is high compared to its recent range, though it's started easing off the top — still a reasonable moment to convert.",
-    'high-flat': "The rate is high compared to its recent range and holding steady there — a reasonable moment to convert.",
-    'mid-up':    "The rate is around its recent average and trending upward — could be worth waiting a little to see if it keeps climbing.",
-    'mid-down':  "The rate is around its recent average and trending downward — converting sooner rather than later may work in your favour.",
-    'mid-flat':  "The rate is sitting close to its recent average, with no strong signal to rush or wait.",
-    'low-up':    "The rate is low compared to its recent range but starting to recover — you may want to wait and see.",
-    'low-down':  "The rate is low compared to its recent range and still slipping — if you can hold off converting, it may be worth it.",
-    'low-flat':  "The rate is low compared to its recent range and has been flat there — no clear sign of a rebound yet."
-  };
-
-  function buildVerdict(stats){
-    var bucket = stats.percentile >= 70 ? 'high' : stats.percentile < 30 ? 'low' : 'mid';
-    return VERDICTS[bucket + '-' + stats.trend];
-  }
-
-  function trendSlope(history, days){
-    var win = FX.windowDays(history, days);
-    if (win.length < 3) return 0;
-    return linearRegression(win).slope;
-  }
-
-  function buildOutlook(stats, history){
-    var shortSlope = trendSlope(history, 7);
-    var longSlope = trendSlope(history, 30);
-
-    if (stats.trend === 'flat'){
-      return "No clear direction over the past month, so timing within the next few days likely won't matter much either way.";
+  // One decision-oriented line: how good today is, and what waiting realistically offers.
+  function buildVerdict(stats, fc){
+    var p = stats.percentile;
+    var up = fc && fc.levels.up1, dn = fc && fc.levels.down1;
+    if (p >= 70){
+      return 'A good rate: higher than ' + p + '% of days in the last 6 months. Converting now locks it in; waiting is a coin flip.';
     }
-    if (stats.trend === 'up'){
-      if (shortSlope >= longSlope){
-        return "The climb still looks intact over the last week — if the pattern holds, the next few days may stay similar or edge higher. Less pressure to convert immediately, though this can turn quickly.";
-      }
-      return "The rate has been climbing, but the pace has slowed over the past week — moves like this often lose steam. If you're planning to convert soon, the next day or two may be safer than waiting for a higher peak.";
+    if (p < 30){
+      var s = 'A weak rate: lower than ' + (100-p) + '% of days in the last 6 months.';
+      if (up && up.typicalDate) s += ' If you can wait, there’s a ' + pct(up.p) + ' chance it gains 1% within 4 weeks, typically by ' + fmtDateShort(up.typicalDate) + '.';
+      return s;
     }
-    if (shortSlope <= longSlope){
-      return "The slide has picked up pace over the past week — if you need to convert, sooner looks more favourable than waiting, based on the recent pattern.";
-    }
-    return "The rate has eased off, but the drop has slowed over the past week — it's less clear the slide continues. Worth watching over the next few days rather than assuming it keeps falling.";
+    var m = 'An average rate: higher than ' + p + '% of days in the last 6 months.';
+    if (up && dn) m += ' Over the next 4 weeks it’s about as likely to gain 1% (' + pct(up.p) + ') as to lose 1% (' + pct(dn.p) + ').';
+    return m;
   }
 
   // ---------- chart ----------
-  function buildChartSVG(history, fc){
-    var W=720, H=220, padL=44, padR=12, padT=14, padB=26;
-    var plotW = W-padL-padR, plotH = H-padT-padB;
-    var recent = FX.windowDays(history, 90);
+  var CH = { W:720, H:230, padL:46, padR:12, padT:16, padB:26 };
+
+  function buildChart(history, fc, rangeDays){
+    var recent = FX.windowDays(history, rangeDays);
+    if (recent.length < 2) recent = history.slice(-2);
     var bands = fc ? fc.bands : [];
     var values = recent.map(function(e){ return e.rate; });
     bands.forEach(function(b){ values.push(b.p10, b.p90); });
-    var minV = Math.min.apply(null, values);
-    var maxV = Math.max.apply(null, values);
-    var pad = (maxV-minV)*0.12 || 1;
+    var minV = Math.min.apply(null, values), maxV = Math.max.apply(null, values);
+    var pad = (maxV-minV)*0.1 || 1;
     var yMin = minV-pad, yMax = maxV+pad;
     var total = recent.length + bands.length;
+    var plotW = CH.W-CH.padL-CH.padR, plotH = CH.H-CH.padT-CH.padB;
 
-    function xAt(i){ return padL + (i/Math.max(1, total-1))*plotW; }
-    function yAt(v){ return padT + (1-(v-yMin)/(yMax-yMin))*plotH; }
+    function xAt(i){ return CH.padL + (i/Math.max(1, total-1))*plotW; }
+    function yAt(v){ return CH.padT + (1-(v-yMin)/(yMax-yMin))*plotH; }
     function pt(i, v){ return xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1); }
 
     var pathHist = '';
@@ -371,86 +481,142 @@
     var lastIdx = recent.length-1, lastRate = recent[lastIdx].rate;
     var fcSvg = '';
     if (bands.length){
-      var upper = [pt(lastIdx, lastRate)], lower = [], mid = 'M' + pt(lastIdx, lastRate) + ' ';
-      bands.forEach(function(b,i){
-        upper.push(pt(lastIdx+1+i, b.p90));
-        lower.unshift(pt(lastIdx+1+i, b.p10));
-        mid += 'L' + pt(lastIdx+1+i, b.p50) + ' ';
-      });
-      fcSvg = '<line x1="' + xAt(lastIdx).toFixed(1) + '" y1="' + padT + '" x2="' + xAt(lastIdx).toFixed(1) + '" y2="' + (H-padB) + '" class="today-line" />' +
-        '<polygon points="' + upper.concat(lower).join(' ') + '" class="fc-band" />' +
+      function band(lo, hi, cls){
+        var up = [pt(lastIdx, lastRate)], dn = [];
+        bands.forEach(function(b,i){ up.push(pt(lastIdx+1+i, b[hi])); dn.unshift(pt(lastIdx+1+i, b[lo])); });
+        return '<polygon points="' + up.concat(dn).join(' ') + '" class="' + cls + '" />';
+      }
+      var mid = 'M' + pt(lastIdx, lastRate) + ' ';
+      bands.forEach(function(b,i){ mid += 'L' + pt(lastIdx+1+i, b.p50) + ' '; });
+      fcSvg = '<line x1="' + xAt(lastIdx).toFixed(1) + '" y1="' + CH.padT + '" x2="' + xAt(lastIdx).toFixed(1) + '" y2="' + (CH.H-CH.padB) + '" class="today-line" />' +
+        band('p10','p90','fc-band') + band('p25','p75','fc-band-in') +
         '<path d="' + mid + '" class="fc-mid" />';
     }
 
-    var yMaxLine = yAt(maxV), yMinLine = yAt(minV);
-    var dateFirst = fmtDateShort(recent[0].date);
-    var dateLast = fmtDateShort(bands.length ? bands[bands.length-1].date : recent[lastIdx].date);
-    var label = 'EUR to INR rate over the last 90 days' + (bands.length ? ', with the likely range for the next 4 weeks' : '');
+    var rMax = Math.max.apply(null, recent.map(function(e){ return e.rate; }));
+    var rMin = Math.min.apply(null, recent.map(function(e){ return e.rate; }));
+    var dateLast = bands.length ? bands[bands.length-1].date : recent[lastIdx].date;
 
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + label + '">' +
-      '<line x1="' + padL + '" y1="' + yMaxLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMaxLine.toFixed(1) + '" class="grid-line" />' +
-      '<line x1="' + padL + '" y1="' + yMinLine.toFixed(1) + '" x2="' + (W-padR) + '" y2="' + yMinLine.toFixed(1) + '" class="grid-line" />' +
-      '<text x="4" y="' + (yMaxLine+4).toFixed(1) + '" class="axis-label">' + maxV.toFixed(2) + '</text>' +
-      '<text x="4" y="' + (yMinLine+4).toFixed(1) + '" class="axis-label">' + minV.toFixed(2) + '</text>' +
-      '<text x="' + padL + '" y="' + (H-6) + '" class="axis-label">' + dateFirst + '</text>' +
-      '<text x="' + (W-padR) + '" y="' + (H-6) + '" class="axis-label" text-anchor="end">' + dateLast + '</text>' +
+    chartModel = { recent: recent, bands: bands, total: total, xAt: xAt, yAt: yAt, lastIdx: lastIdx };
+
+    return '<svg viewBox="0 0 ' + CH.W + ' ' + CH.H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EUR to INR rate' + (bands.length ? ', with the likely range for the next 4 weeks' : '') + '">' +
+      '<line x1="' + CH.padL + '" y1="' + yAt(rMax).toFixed(1) + '" x2="' + (CH.W-CH.padR) + '" y2="' + yAt(rMax).toFixed(1) + '" class="grid-line" />' +
+      '<line x1="' + CH.padL + '" y1="' + yAt(rMin).toFixed(1) + '" x2="' + (CH.W-CH.padR) + '" y2="' + yAt(rMin).toFixed(1) + '" class="grid-line" />' +
+      '<text x="0" y="' + (yAt(rMax)+3.5).toFixed(1) + '" class="axis-label">' + rMax.toFixed(2) + '</text>' +
+      '<text x="0" y="' + (yAt(rMin)+3.5).toFixed(1) + '" class="axis-label">' + rMin.toFixed(2) + '</text>' +
+      '<text x="' + CH.padL + '" y="' + (CH.H-6) + '" class="axis-label">' + fmtDateShort(recent[0].date) + '</text>' +
+      (bands.length ? '<text x="' + xAt(lastIdx).toFixed(1) + '" y="' + (CH.H-6) + '" class="axis-label" text-anchor="middle">Today</text>' : '') +
+      '<text x="' + (CH.W-CH.padR) + '" y="' + (CH.H-6) + '" class="axis-label" text-anchor="end">' + fmtDateShort(dateLast) + '</text>' +
       fcSvg +
-      '<path d="' + pathHist + '" class="hist-line" fill="none" />' +
-      '<circle cx="' + xAt(lastIdx).toFixed(1) + '" cy="' + yAt(lastRate).toFixed(1) + '" r="4" class="current-dot" />' +
+      '<path d="' + pathHist + '" class="hist-line" />' +
+      '<circle cx="' + xAt(lastIdx).toFixed(1) + '" cy="' + yAt(lastRate).toFixed(1) + '" r="4.5" class="current-dot" />' +
+      '<g id="crossLayer" visibility="hidden"><line class="cross" id="crossLine" y1="' + CH.padT + '" y2="' + (CH.H-CH.padB) + '" /><circle class="cross-dot" id="crossDot" r="4.5" /></g>' +
       '</svg>';
   }
 
-  // ---------- forecast panel ----------
+  function renderChart(){
+    if (!currentHistory.length) return;
+    els.chartContainer.innerHTML = buildChart(currentHistory, lastForecast, ui.range);
+    els.legendBand.hidden = !lastForecast;
+    Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(b){
+      b.setAttribute('aria-pressed', String(Number(b.dataset.range) === ui.range));
+    });
+    els.chartTip.hidden = true;
+  }
+
+  function showTip(clientX){
+    if (!chartModel) return;
+    var svg = els.chartContainer.querySelector('svg'); if (!svg) return;
+    var rect = svg.getBoundingClientRect();
+    var x = (clientX - rect.left) / rect.width * CH.W;
+    var m = chartModel;
+    var i = Math.round((x - CH.padL) / ((CH.W-CH.padL-CH.padR) / Math.max(1, m.total-1)));
+    i = Math.max(0, Math.min(m.total-1, i));
+    var html, y;
+    if (i <= m.lastIdx){
+      var e = m.recent[i];
+      y = m.yAt(e.rate);
+      html = '<b>' + fmtStat(e.rate) + '</b> <span>' + fmtDateShort(e.date) + '</span>';
+    } else {
+      var b = m.bands[i - m.lastIdx - 1];
+      y = m.yAt(b.p50);
+      html = '<b>' + fmtStat(b.p10) + ' – ' + fmtStat(b.p90) + '</b><br><span>likely by ' + fmtDateShort(b.date) + '</span>';
+    }
+    var cx = m.xAt(i);
+    var layer = $('crossLayer'); layer.setAttribute('visibility', 'visible');
+    $('crossLine').setAttribute('x1', cx); $('crossLine').setAttribute('x2', cx);
+    $('crossDot').setAttribute('cx', cx); $('crossDot').setAttribute('cy', y);
+    var tip = els.chartTip;
+    tip.innerHTML = html; tip.hidden = false;
+    var px = cx / CH.W * rect.width;
+    var half = tip.offsetWidth / 2;
+    px = Math.max(half, Math.min(rect.width - half, px));
+    tip.style.left = px + 'px';
+    tip.style.top = (-tip.offsetHeight - 4) + 'px';
+  }
+  function hideTip(){
+    els.chartTip.hidden = true;
+    var layer = $('crossLayer'); if (layer) layer.setAttribute('visibility', 'hidden');
+  }
+
+  // ---------- forecast section ----------
   var backtestCache = { key: null, result: null, running: null };
 
-  function pct(p){
-    if (p < 0.01) return 'Under 1%';
-    if (p > 0.99) return 'Over 99%';
-    return Math.round(p*100) + '%';
-  }
-  function oddsWithDate(info){
-    if (!info) return '—';
-    if (info.p < 0.01 || !info.typicalDate) return pct(info.p);
-    return pct(info.p) + ' <small>· by ~' + fmtDateShort(info.typicalDate) + '</small>';
+  function placePct(lo, hi, v){ return Math.max(0, Math.min(100, (v-lo)/(hi-lo)*100)); }
+  function placeLabel(el, p){
+    el.style.left = p + '%';
+    el.style.transform = p < 15 ? 'translateX(-5px)' : p > 85 ? 'translateX(calc(-100% + 5px))' : 'translateX(-50%)';
   }
 
   function renderForecast(fc){
-    var show = !!fc;
-    els.forecastSection.hidden = !show;
-    els.forecastRule.hidden = !show;
-    if (!show) return;
-
-    var p4 = fc.pHigher[19], p1 = fc.pHigher[4];
-    var head;
-    if (p4 >= 0.6) head = 'Leaning higher: about ' + Math.round(p4*100) + '% of simulations end above today’s rate in 4 weeks.';
-    else if (p4 <= 0.4) head = 'Leaning lower: only about ' + Math.round(p4*100) + '% of simulations end above today in 4 weeks, so waiting is more likely to cost you than pay off.';
-    else head = 'No real edge: it’s close to a coin flip whether the rate is higher in 4 weeks.';
-    els.fcHeadline.textContent = head;
-
-    var b = fc.beat;
-    els.fcWhen.textContent = b.p >= 0.01 && b.typicalDate
-      ? pct(b.p) + ' chance it reaches ' + fmtStat(fc.beatLevel) + ' (+0.5%) at some point. When it does, it’s typically by ' + fmtDateShort(b.typicalDate) + '.'
-      : 'Little chance of it climbing 0.5% above today in the next 4 weeks.';
-
-    els.fcWeek1.textContent = pct(p1);
-    els.fcWeek4.textContent = pct(p4);
+    els.fcEmpty.hidden = !!fc;
+    els.fcBody.hidden = !fc;
+    if (!fc){ els.peekForecast.textContent = '—'; return; }
     var end = fc.bands[fc.bands.length-1];
-    els.fcRangeLabel.textContent = 'Likely range by ' + fmtDateShort(end.date);
-    els.fcRange.textContent = fmtStat(end.p10) + ' – ' + fmtStat(end.p90);
-    els.fcHighLabel.textContent = 'New 90-day high (above ' + fmtStat(fc.high90) + ')';
-    els.fcHigh.innerHTML = oddsWithDate(fc.newHigh);
+    els.peekForecast.textContent = fmtStat(end.p10) + ' – ' + fmtStat(end.p90);
 
-    if (fc.targetHit){
-      els.fcTargetRow.hidden = false;
-      els.fcTargetLabel.textContent = 'Reaches your target (' + fmtStat(fc.target) + ')';
-      els.fcTarget.innerHTML = oddsWithDate(fc.targetHit);
-    } else {
-      els.fcTargetRow.hidden = true;
+    // Range bar
+    els.fcRangeTitle.textContent = 'Likely rate by ' + fmtDateShort(end.date);
+    var lo = Math.min(end.p10, fc.start), hi = Math.max(end.p90, fc.start);
+    var padR = (hi-lo)*0.06; lo -= padR; hi += padR;
+    function at(v){ return placePct(lo, hi, v) + '%'; }
+    els.rbOuter.style.left = at(end.p10); els.rbOuter.style.width = (placePct(lo,hi,end.p90)-placePct(lo,hi,end.p10)) + '%';
+    els.rbInner.style.left = at(end.p25); els.rbInner.style.width = (placePct(lo,hi,end.p75)-placePct(lo,hi,end.p25)) + '%';
+    els.rbMid.style.left = at(end.p50);
+    els.rbNow.style.left = at(fc.start);
+    placeLabel(els.rbNowLabel, placePct(lo, hi, fc.start));
+    els.rbNowLabel.textContent = 'today ' + fc.start.toFixed(2);
+    els.rbLo.textContent = fmtStat(end.p10);
+    els.rbMidVal.textContent = 'mid ' + fmtStat(end.p50);
+    els.rbHi.textContent = fmtStat(end.p90);
+
+    // Meters
+    var rows = [];
+    function row(key, label, cls){
+      var l = fc.levels[key]; if (!l) return;
+      var when = l.p >= 0.01 && l.typicalDate ? 'typically by ' + fmtDateShort(l.typicalDate) : 'unlikely';
+      rows.push({ rate: l.rate, html:
+        '<div class="meter' + (cls ? ' ' + cls : '') + '">' +
+          '<div class="m-label"><span class="num">' + fmtStat(l.rate) + '</span> ' + esc(label) + '<small>' + when + '</small></div>' +
+          '<div class="m-track" role="presentation"><div class="m-fill" style="width:' + Math.max(1, Math.round(l.p*100)) + '%"></div></div>' +
+          '<div class="m-val num">' + pct(l.p) + '</div>' +
+        '</div>' });
     }
+    row('up05', '+0.5%'); row('up1', '+1%'); row('up2', '+2%');
+    row('high90', '90-day high'); row('target', 'your target'); row('down1', '−1%', 'down');
+    rows.sort(function(a,b){ return b.rate - a.rate; });
+    els.fcMeters.innerHTML = rows.map(function(r){ return r.html; }).join('');
 
-    // Self-check on past data, run after paint (it re-runs the model ~60 times).
+    // Up / down split
+    var pUp = fc.pHigher[fc.pHigher.length-1];
+    var upW = Math.round(pUp*100);
+    els.splitUp.style.flex = String(Math.max(1, upW)); els.splitDn.style.flex = String(Math.max(1, 100-upW));
+    els.splitUpLabel.textContent = 'Higher ' + upW + '%';
+    els.splitDnLabel.textContent = 'Lower ' + (100-upW) + '%';
+
+    // Self-check on this device's data, after paint.
     var key = currentHistory.length + ':' + currentHistory[currentHistory.length-1].date;
-    if (backtestCache.key === key) { showBacktest(backtestCache.result); return; }
+    if (backtestCache.key === key){ showBacktest(backtestCache.result); return; }
     els.fcBacktest.textContent = '';
     if (backtestCache.running === key) return;
     backtestCache.running = key;
@@ -463,9 +629,39 @@
   }
 
   function showBacktest(bt){
-    if (!bt || bt.tests < 20) { els.fcBacktest.textContent = ''; return; }
-    els.fcBacktest.textContent = 'Checked against the last ' + bt.tests + ' trading days: the real rate 4 weeks later landed inside the predicted range ' +
-      Math.round(bt.coverage*100) + '% of the time (aim: 80%).';
+    if (!bt || bt.tests < 20){ els.fcBacktest.textContent = ''; return; }
+    els.fcBacktest.textContent = 'Last ' + bt.tests + ' trading days: the real rate landed inside the range ' + Math.round(bt.coverage*100) + '% of the time.';
+  }
+
+  // ---------- stats section ----------
+  function renderStats(stats){
+    els.peekStats.textContent = 'Higher than ' + stats.percentile + '% of days';
+
+    var lo = stats.low90.rate, hi = stats.high90.rate, now = stats.current.rate;
+    var pos = hi > lo ? placePct(lo, hi, now) : 50;
+    els.posFill.style.width = pos + '%';
+    els.posNow.style.left = pos + '%';
+    placeLabel(els.posNowLabel, pos);
+    els.posNowLabel.textContent = 'today ' + now.toFixed(2);
+    els.posLo.textContent = fmtStat(lo); els.posLoDate.textContent = 'low · ' + fmtDateShort(stats.low90.date);
+    els.posHi.textContent = fmtStat(hi); els.posHiDate.textContent = 'high · ' + fmtDateShort(stats.high90.date);
+
+    // Distribution of daily rates over 6 months, today's bin highlighted
+    var rates = stats.win180.map(function(e){ return e.rate; });
+    var rMin = Math.min.apply(null, rates), rMax = Math.max.apply(null, rates);
+    var BINS = 24, counts = new Array(BINS).fill(0), span = (rMax - rMin) || 1;
+    function bin(v){ return Math.min(BINS-1, Math.floor((v - rMin) / span * BINS)); }
+    rates.forEach(function(v){ counts[bin(v)]++; });
+    var top = Math.max.apply(null, counts), nowBin = bin(now);
+    els.histBars.innerHTML = counts.map(function(c, i){
+      return '<div' + (i === nowBin ? ' class="now"' : '') + ' style="height:' + Math.max(4, Math.round(c/top*100)) + '%" title="' + c + ' days"></div>';
+    }).join('');
+    els.histBars.setAttribute('aria-label', 'Today is higher than ' + stats.percentile + '% of days in the last 6 months');
+    els.histLo.textContent = fmtStat(rMin); els.histHi.textContent = fmtStat(rMax);
+
+    els.statAvg7.textContent = fmtStat(stats.avg7);
+    els.statAvg30.textContent = fmtStat(stats.avg30);
+    els.statChange30.textContent = fmtChange(stats.change30, stats.change30Pct);
   }
 
   // ---------- settings ----------
@@ -474,12 +670,11 @@
   }
   function setTheme(theme){
     document.documentElement.setAttribute('data-theme', theme);
-    els.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    els.themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
     var m = document.querySelector('meta[name="theme-color"]');
     if (m) m.setAttribute('content', theme === 'dark' ? '#181C16' : '#EDEAE1');
   }
 
-  // Only bumps the sync timestamp when a synced field (target, theme, amount) changes.
   async function saveSettings(patch){
     var touch = ['targetRate','theme','amount'].some(function(k){ return k in patch; });
     currentState = await FX.updateState(function(s){ Object.assign(s, patch); }, touch);
@@ -500,11 +695,13 @@
 
   function updateNotifyUI(){
     var on = notifyActive();
-    els.enableNotifyBtn.textContent = on ? 'Turn off notifications' : 'Enable notifications';
-    if (!notifySupported()) els.notifyStatus.textContent = 'Not available in this browser. On iPhone, add the app to your Home Screen and open it from there.';
-    else if (on) els.notifyStatus.textContent = 'Notifications on ✓';
-    else if (Notification.permission === 'denied') els.notifyStatus.textContent = 'Blocked in your browser settings. Allow notifications for this site to use alerts.';
-    else els.notifyStatus.textContent = 'Notifications are off.';
+    els.enableNotifyBtn.setAttribute('aria-checked', String(on));
+    var msg = '';
+    if (!notifySupported()) msg = 'Not available in this browser. On iPhone, add the app to your Home Screen and open it from there.';
+    else if (!on && Notification.permission === 'denied') msg = 'Blocked in your browser settings. Allow notifications for this site to use alerts.';
+    els.notifyStatus.textContent = msg;
+    var t = currentState.targetRate;
+    els.peekAlerts.textContent = on ? ('On' + (t != null ? ' · ' + fmtStat(t) : '')) : (t != null ? 'Off · ' + fmtStat(t) : 'Off');
   }
 
   async function registerPeriodicSync(){
@@ -565,15 +762,14 @@
   function updateConverterOutput(){
     var amt = parseFloat(els.amountInput.value);
     if (!lastStats || isNaN(amt)){ els.convertedOutput.textContent = '—'; return; }
-    var inr = amt * lastStats.current.rate;
-    els.convertedOutput.textContent = '₹' + inr.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    els.convertedOutput.textContent = '₹' + (amt * lastStats.current.rate).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   }
 
   function renderAll(){
     if (!currentHistory.length) return;
     var stats = computeStats(currentHistory);
-    var fc = FX.forecast(currentHistory, { target: currentState && currentState.targetRate });
     lastStats = stats;
+    lastForecast = FX.forecast(currentHistory, { target: currentState && currentState.targetRate });
 
     els.app.hidden = false;
     els.errorState.hidden = true;
@@ -581,23 +777,17 @@
     animateHero(stats.current.rate);
     els.heroDate.textContent = fmtDateShort(stats.current.date);
     updateConverterOutput();
+    els.verdictText.textContent = buildVerdict(stats, lastForecast);
 
-    els.verdictText.textContent = buildVerdict(stats);
-    els.outlookText.textContent = buildOutlook(stats, currentHistory);
-
-    els.chartContainer.innerHTML = buildChartSVG(currentHistory, fc);
-    renderForecast(fc);
-
-    els.statAvg7.textContent = fmtStat(stats.avg7);
-    els.statAvg30.textContent = fmtStat(stats.avg30);
-    els.statHigh90.textContent = fmtStat(stats.high90.rate) + ' (' + fmtDateShort(stats.high90.date) + ')';
-    els.statLow90.textContent = fmtStat(stats.low90.rate) + ' (' + fmtDateShort(stats.low90.date) + ')';
-    els.statChange30.textContent = fmtChange(stats.change30, stats.change30Pct);
-    els.statPercentile.textContent = 'Higher than ' + stats.percentile + '% of days';
+    renderChart();
+    renderForecast(lastForecast);
+    renderStats(stats);
+    updateNotifyUI();
   }
 
   function setStatus(kind, date){
     var dot = els.statusDot, text = els.statusText;
+    els.refreshBtn.classList.toggle('spin', kind === 'loading');
     if (kind === 'loading'){ dot.style.background = 'var(--wait)'; text.textContent = 'Loading…'; }
     else if (kind === 'live'){ dot.style.background = 'var(--good)'; text.textContent = 'Updated · ' + fmtDateShort(date); }
     else if (kind === 'cached'){ dot.style.background = 'var(--wait)'; text.textContent = 'Cached · ' + fmtDateShort(date); }
@@ -775,6 +965,23 @@
       await saveSettings({ theme: next });
     });
 
+    Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(b){
+      b.addEventListener('click', function(){
+        ui.range = Number(b.dataset.range); saveUI(); renderChart();
+      });
+    });
+
+    var wrap = els.chartWrap;
+    wrap.addEventListener('pointermove', function(e){ showTip(e.clientX); });
+    wrap.addEventListener('pointerdown', function(e){ showTip(e.clientX); });
+    wrap.addEventListener('pointerleave', hideTip);
+    wrap.addEventListener('pointercancel', hideTip);
+
+    Array.prototype.forEach.call(document.querySelectorAll('details[data-key]'), function(d){
+      if (ui.open[d.dataset.key]) d.open = true;
+      d.addEventListener('toggle', function(){ ui.open[d.dataset.key] = d.open; saveUI(); });
+    });
+
     els.targetForm.addEventListener('submit', async function(e){
       e.preventDefault();
       var val = parseFloat(els.targetInput.value);
@@ -787,6 +994,7 @@
       } else {
         var msg = 'Alert set for ' + fmtStat(target) + '.';
         if (fired) msg += " The rate is already above this, so you'll be alerted if it dips below and comes back.";
+        else if (lastForecast && lastForecast.levels.target && lastForecast.levels.target.p >= 0.01) msg += ' ' + pct(lastForecast.levels.target.p) + ' chance within 4 weeks.';
         if (!notifyActive()) msg += ' Turn on notifications below to receive it.';
         els.targetStatus.textContent = msg;
       }
@@ -831,12 +1039,17 @@
 
   async function init(){
     ['statusDot','statusText','refreshBtn','themeToggle','app','heroValue','heroDate','amountInput','convertedOutput',
-     'verdictText','outlookText','chartContainer','statAvg7','statAvg30','statHigh90','statLow90','statChange30','statPercentile',
-     'targetForm','targetInput','targetStatus','enableNotifyBtn','notifyStatus','errorState','errorText','retryBtn',
-     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg',
-     'forecastSection','forecastRule','fcHeadline','fcWhen','fcWeek1','fcWeek4','fcRangeLabel','fcRange','fcHighLabel','fcHigh','fcTargetRow','fcTargetLabel','fcTarget','fcBacktest']
+     'verdictText','chartWrap','chartContainer','chartTip','legendBand',
+     'peekForecast','fcEmpty','fcBody','fcRangeTitle','rbOuter','rbInner','rbMid','rbNow','rbNowLabel','rbLo','rbMidVal','rbHi',
+     'fcMeters','splitUp','splitDn','splitUpLabel','splitDnLabel','fcBacktest',
+     'peekStats','posFill','posNow','posNowLabel','posLo','posLoDate','posHi','posHiDate','histBars','histLo','histHi',
+     'statAvg7','statAvg30','statChange30',
+     'peekAlerts','targetForm','targetInput','targetStatus','enableNotifyBtn','notifyStatus','errorState','errorText','retryBtn',
+     'syncBlock','syncStatus','syncToggle','syncForm','syncEmail','syncPass','syncMsg']
       .forEach(function(id){ els[id] = $(id); });
 
+    loadUI();
+    if ([30, 90, 365].indexOf(ui.range) < 0) ui.range = 90;
     registerSW();
     currentState = await FX.loadState();
     applyState();

@@ -1,7 +1,7 @@
 /* sw.js — offline app shell, background rate checks, notification clicks. */
 importScripts('fx-core.js');
 
-var SHELL = 'eur-inr-shell-v2';
+var SHELL = 'eur-inr-shell-v3';
 var SHELL_FILES = [
   './', 'index.html', 'fx-core.js', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon.svg'
